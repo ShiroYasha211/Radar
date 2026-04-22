@@ -1,0 +1,116 @@
+Legacy combined hardware test.
+Deprecated in favor of the isolated sketches under ../
+Keep only as reference. Do not use it for acceptance.
+
+#include <Servo.h>
+
+// ========================================
+// كود الفحص المستقل (Hardware Isolation Test)
+// لبرج الرماية والمحرك والجرس فقط
+// ========================================
+
+// محرك السيرفو الأفقي (Azimuth)
+#define LAUNCH_AZIMUTH_PIN   9    
+// محرك السيرفو العمودي (Elevation) - تم نقله إلى 6 احتياطياً لاختبار إذا كان المنفذ 5 تالفاً
+#define LAUNCH_ELEVATION_PIN 6    
+
+// محرك الإطلاق (L298N DC Motor) - العجلتان المطاطيتان
+#define MOTOR_IN1   4
+#define MOTOR_IN2   2             
+
+// سماعة الإنذار (Buzzer)
+#define BUZZER_PIN  A5 
+
+Servo launchAzimuth;
+Servo launchElevation;
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println("====== نظام الفحص المستقل لآلية الإطلاق ======");
+
+    // تهيئة دبابيس الإخراج
+    pinMode(MOTOR_IN1, OUTPUT);
+    pinMode(MOTOR_IN2, OUTPUT);
+    pinMode(BUZZER_PIN, OUTPUT);
+
+    // حالة الأمان الابتدائية (تأكد من إطفاء محرك الإطلاق)
+    stopFire();
+    noTone(BUZZER_PIN);
+    
+    // ربط السيرفو
+    launchAzimuth.attach(LAUNCH_AZIMUTH_PIN);
+    launchElevation.attach(LAUNCH_ELEVATION_PIN);
+    
+    // تحريك السيرفو للوضع الأمامي والأسفل كبداية
+    launchAzimuth.write(90);
+    launchElevation.write(0);
+    delay(2000);
+}
+
+void loop() {
+    // 1. توجيه البرج نحو زوايا عشوائية لاختبار مرونة الحركة
+    // الزاوية الأفقية كاملة من 0 إلى 180
+    int testAzimuth = random(0, 181); 
+    // الزاوية العمودية وسعناها من 0 إلى 180 للتأكد من أنها تتحرك بالكامل!
+    int testElevation = random(0, 181); 
+    
+    Serial.print("--- توجيه البرج نحو: أفقي ["); 
+    Serial.print(testAzimuth);
+    Serial.print("°] | عمودي ["); 
+    Serial.print(testElevation);
+    Serial.println("°] ---");
+    
+    launchAzimuth.write(testAzimuth);
+    launchElevation.write(testElevation);
+    
+    // الانتظار ثانيتين لإعطاء البرج وقتاً كافياً للوصول للهدف
+    delay(2000);
+
+    // 2. تفعيل صفارة الإنذار بتسارع (لمدة 3 ثوانٍ) - المجموع 5 ثواني
+    Serial.println(">> إنذار وتجهيز للإطلاق...");
+    int beepDelay = 400; // يبدأ التأخير بـ 400 ملي ثانية (بطيء)
+    for(int i = 0; i < 9; i++) {
+        tone(BUZZER_PIN, 2500); // صوت حاد
+        delay(80);              // مدة النبضة
+        noTone(BUZZER_PIN);
+        delay(beepDelay);       // مدة الصمت
+        beepDelay -= 40;        // تسريع النبضات تدريجياً
+    }
+
+    // صفارة طويلة أخيرة لمدة نصف ثانية قبل الإطلاق تماماً
+    tone(BUZZER_PIN, 3000);
+    delay(500);
+    noTone(BUZZER_PIN);
+
+    // 3. الإطلاق الفعلي (تجربة محرك العجلات بالاتجاهين لكشف العطل)
+    Serial.println(">> اختبار الدوران في الاتجاه الأول...");
+    digitalWrite(MOTOR_IN1, HIGH);
+    digitalWrite(MOTOR_IN2, LOW);
+    delay(1000); 
+
+    Serial.println(">> إيقاف مؤقت...");
+    stopFire();
+    delay(500);
+
+    Serial.println(">> اختبار الدوران في الاتجاه المعاكس...");
+    digitalWrite(MOTOR_IN1, LOW);
+    digitalWrite(MOTOR_IN2, HIGH);
+    delay(1000);
+
+    // إيقاف الإطلاق
+    Serial.println(">> إيقاف الإطلاق. انتظار للدورة القادمة...\n");
+    stopFire();
+    
+    // الانتظار 3 ثواني قبل الدورة القادمة
+    delay(3000); 
+}
+
+void startFire() {
+    digitalWrite(MOTOR_IN1, HIGH);
+    digitalWrite(MOTOR_IN2, LOW);
+}
+
+void stopFire() {
+    digitalWrite(MOTOR_IN1, LOW);
+    digitalWrite(MOTOR_IN2, LOW);
+}
