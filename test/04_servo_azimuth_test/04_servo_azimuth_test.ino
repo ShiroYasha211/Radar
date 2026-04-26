@@ -6,9 +6,9 @@
 #include <Servo.h>
 
 #define SERVO_PIN 9
-#define ZERO_AZIMUTH_ANGLE 90
+#define ZERO_AZIMUTH_ANGLE 60
 #define TEST_MIN_ANGLE 0
-#define TEST_MAX_ANGLE 180
+#define TEST_MAX_ANGLE 170
 #define STEP_DELAY_MS 15
 #define HOLD_DELAY_MS 1200
 

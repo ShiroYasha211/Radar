@@ -11,11 +11,11 @@
 #define AZIMUTH_PIN 9
 #define ELEVATION_PIN 5
 
-#define ZERO_AZIMUTH_ANGLE 0
+#define ZERO_AZIMUTH_ANGLE 60
 #define ZERO_ELEVATION_ANGLE 45
 
 #define AZIMUTH_MIN_ANGLE 0
-#define AZIMUTH_MAX_ANGLE 360
+#define AZIMUTH_MAX_ANGLE 170
 #define ELEVATION_MIN_ANGLE 20
 #define ELEVATION_MAX_ANGLE 90
 
@@ -48,7 +48,7 @@ void printIntro() {
   Serial.println(F("PINS: AZIMUTH=D9, ELEVATION=D5"));
   Serial.println(F("POWER: use external 5V/6V supply with shared GND"));
   Serial.println(F("GOAL: type the exact angle and verify the real mechanical position"));
-  Serial.println(F("RANGE: AZ=0..130 deg, EL=20..90 deg"));
+  Serial.println(F("RANGE: AZ=0..170 deg, EL=20..90 deg"));
   Serial.println();
 }
 

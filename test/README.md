@@ -17,17 +17,18 @@ Recommended test order:
 1. `01_led_buzzer_test`
 2. `02_tft_ili9225_test`
 3. `03_ultrasonic_hcsr04_test`
-4. `04_servo_azimuth_test`
-5. `05_servo_elevation_test`
-6. `12_elevation_servo_manual_range_test`
-7. `06_stepper_28byj48_test`
-8. `07_dc_motor_l298n_test`
-9. `13_manual_turret_fire_test`
-10. `14_hall_home_switch_test`
-11. `15_hall_sensor_debug_test`
-12. `16_hall_sensor_universal_probe_test`
-13. `17_49e_home_sensor_test`
-14. `08_serial_processing_link_test`
+4. `18_ultrasonic_range_quality_test`
+5. `04_servo_azimuth_test`
+6. `05_servo_elevation_test`
+7. `12_elevation_servo_manual_range_test`
+8. `06_stepper_28byj48_test`
+9. `07_dc_motor_l298n_test`
+10. `13_manual_turret_fire_test`
+11. `14_hall_home_switch_test`
+12. `15_hall_sensor_debug_test`
+13. `16_hall_sensor_universal_probe_test`
+14. `17_49e_home_sensor_test`
+15. `08_serial_processing_link_test`
 
 Acceptance workflow:
 1. Open one sketch folder at a time.
@@ -41,6 +42,7 @@ Folder map:
 - `01_led_buzzer_test/`: LED and buzzer only
 - `02_tft_ili9225_test/`: local TFT display only
 - `03_ultrasonic_hcsr04_test/`: HC-SR04 only
+- `18_ultrasonic_range_quality_test/`: ultrasonic sensor real range, stability, and no-echo rate test
 - `04_servo_azimuth_test/`: horizontal servo only
 - `05_servo_elevation_test/`: vertical servo only
 - `12_elevation_servo_manual_range_test/`: manual exact-angle control for azimuth + elevation servos
