@@ -77,7 +77,7 @@ class EnhancedRadarSystem {
   PVector radarCenter;
   float radarRadius;
 
-  final int displayMaxRangeCm = 400;
+  final int displayMaxRangeCm = 500;
   final int nearPingLifetimeMs = 1200;
   final int farPingLifetimeMs = 3200;
   final int maxSerialLinesPerFrame = 8;
@@ -644,17 +644,17 @@ class EnhancedRadarSystem {
       alarmStatusText = "خمول / منطقة عمياء";
       targetDetected = false;
     } else if (iState == 1) {
-      threatLevelText = "تم رصد هدف بعيد (من 251 إلى 400 سم)";
+      threatLevelText = "تم رصد هدف بعيد (من 301 إلى 500 سم)";
       alarmStatusText = "إنذار بعيد";
       if (!targetDetected && isValidDistance(iDistance)) lastTargetClockText = currentClockText();
       targetDetected = true;
     } else if (iState == 2) {
-      threatLevelText = "تم رصد هدف متوسط المدى (من 201 إلى 250 سم)";
+      threatLevelText = "تم رصد هدف متوسط المدى (من 201 إلى 300 سم)";
       alarmStatusText = "إنذار متوسط";
       if (!targetDetected && isValidDistance(iDistance)) lastTargetClockText = currentClockText();
       targetDetected = true;
     } else if (iState == 3) {
-      threatLevelText = "تم رصد هدف خطر مع تتبع وتصويب (من 21 إلى 200 سم)";
+      threatLevelText = "تم رصد هدف خطر مع تتبع وتصويب (من 41 إلى 200 سم)";
       alarmStatusText = "خطر مع تتبع";
       if (!targetDetected && isValidDistance(iDistance)) lastTargetClockText = currentClockText();
       targetDetected = true;
@@ -663,12 +663,12 @@ class EnhancedRadarSystem {
 
   color getRangeColor(float distance) {
     if (distance <= 200) return p.color(255, 70, 50);
-    if (distance <= 250) return p.color(255, 235, 80);
+    if (distance <= 300) return p.color(255, 235, 80);
     return p.color(80, 255, 130);
   }
 
   boolean isValidDistance(int value) {
-    return value > 20 && value <= displayMaxRangeCm;
+    return value > 40 && value <= displayMaxRangeCm;
   }
 
   int wrapAngle360(int value) {

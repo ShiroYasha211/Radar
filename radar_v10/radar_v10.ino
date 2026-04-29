@@ -46,9 +46,9 @@ const byte MAX_STEPPER_LAG_STEPS = 2;
 const byte MAX_STEPPER_CATCHUP_STEPS = 4;
 
 const int BLIND_ZONE_MAX_DISTANCE = 40;
-const int DANGER_MAX_DISTANCE = 200;
-const int MID_MAX_DISTANCE = 250;
-const int TARGET_DETECT_DISTANCE = 400;
+const int DANGER_MAX_DISTANCE = 150;
+const int MID_MAX_DISTANCE = 300;
+const int TARGET_DETECT_DISTANCE = 500;
 
 const int TARGET_BIN_SIZE_DEG = 10;
 const int TARGET_BIN_COUNT = 36;
@@ -69,7 +69,7 @@ const int TARGET_SCORE_STABILITY_MAX_BONUS = 120;
 const int TARGET_SCORE_DANGER_BONUS = 180;
 const int TARGET_SCORE_AIMABLE_BONUS = 90;
 
-const byte FILTER_DEN = 10;
+const byte FILTER_DEN = 7;
 const byte ANGLE_FILTER_NUM = 4;
 const byte DIST_FILTER_NUM = 3;
 const byte VELOCITY_FILTER_NUM = 3;
@@ -77,38 +77,43 @@ const int MAX_ANGULAR_VELOCITY_DPS = 240;
 const int MAX_RADIAL_VELOCITY_CMPS = 250;
 
 const int MIN_AZIMUTH = 0;
-const int MAX_AZIMUTH = 150;
+const int MAX_AZIMUTH = 170;
 const int HOME_AZIMUTH = 60;
 const bool AZIMUTH_DIRECTION_INVERTED = true;
 const int RADAR_FORWARD_ANGLE = 0;
 const int TURRET_FORWARD_RADAR_OFFSET_DEG = 0;
 const int RADAR_AIM_LEFT_SPAN = 110;
 const int RADAR_AIM_RIGHT_SPAN = 90;
+const float SENSOR_HEIGHT_CM = 17.0f;
+const float SENSOR_TO_LAUNCH_HEIGHT_DROP_CM = 9.0f;
+const float LAUNCH_REFERENCE_HEIGHT_CM = SENSOR_HEIGHT_CM - SENSOR_TO_LAUNCH_HEIGHT_DROP_CM;
 const float TURRET_OFFSET_FORWARD_CM = 8.0f;
 const float TURRET_OFFSET_RIGHT_CM = 14.0f;
-const float SENSOR_HEIGHT_ABOVE_LAUNCH_CM = 9.0f;
+const float TARGET_REFERENCE_HEIGHT_CM = 25.0f;
 
 const int MIN_ELEVATION = 20;
 const int MAX_ELEVATION = 90;
 const int DEFAULT_ELEVATION = 45;
 const float ELEVATION_OFFSET_CM = 8.0f;
 const float ELEVATION_PLATFORM_BIAS_DEG = 0.0f;
-const float TARGET_REFERENCE_HEIGHT_CM = 6.0f;
-const float LAUNCH_REFERENCE_HEIGHT_CM = 0.0f;
 const float ELEVATION_CLOSE_LIFT_DEG = 12.0f;
 const float ELEVATION_DROP_GAIN_DEG_PER_M2 = 1.2f;
 const float ELEVATION_APPROACH_GAIN_DEG_PER_CMPS = 0.015f;
 const float DEG_PER_RAD = 57.2957795f;
+const float AIM_SMOOTHING_ALPHA = 0.25f;
+const float AIM_DAMPING = 0.22f;
+const unsigned long AIM_PREDICTION_MS = 200;
 
 const unsigned long SENSOR_MEASURE_INTERVAL_MS = 85;
 const unsigned long TARGET_MEMORY_MS = 1200;
 const unsigned long TARGET_PREDICTION_LIMIT_MS = 350;
+const unsigned long AIM_HOME_RETURN_DELAY_MS = 4000;
 const unsigned long SERVO_UPDATE_INTERVAL_MS = 20;
 const unsigned long SERIAL_UPDATE_INTERVAL_MS = SENSOR_MEASURE_INTERVAL_MS;
 const unsigned long HOME_SWITCH_DEBOUNCE_MS = 40;
 const unsigned long AZIMUTH_TRACK_LEAD_MS = 0;
 const unsigned long ELEVATION_TRACK_LEAD_MS = 260;
-const unsigned long FIRE_LOCK_HOLD_MS = 0;
+const unsigned long FIRE_LOCK_HOLD_MS = 20;
 const unsigned long FIRE_PULSE_MS = 600;
 const unsigned long FIRE_COOLDOWN_MS = 0;
 
@@ -116,15 +121,22 @@ const int SERVO_AZIMUTH_STEP_DEG = 1;
 const int SERVO_ELEVATION_STEP_DEG = 1;
 const int SERVO_AZIMUTH_FAST_STEP_DEG = 4;
 const int SERVO_ELEVATION_FAST_STEP_DEG = 3;
-const int AZIMUTH_COMMAND_DEADBAND_DEG = 1;
-const int ELEVATION_COMMAND_DEADBAND_DEG = 2;
-const int SERVO_POSITION_DEADBAND_DEG = 1;
-const int AZIMUTH_FIRE_CORRECTION_DEG = -1;
-const int FIRE_AZIMUTH_TOLERANCE_DEG = 2;
-const int FIRE_ELEVATION_TOLERANCE_DEG = 4;
+const float AZIMUTH_COMMAND_DEADBAND_DEG = 0.25f;
+const float ELEVATION_COMMAND_DEADBAND_DEG = 0.35f;
+const float SERVO_POSITION_DEADBAND_DEG = 0.35f;
+const float AZIMUTH_FIRE_CORRECTION_DEG = -1.1f;
+const float FIRE_AZIMUTH_TOLERANCE_DEG = 1.0f;
+const float FIRE_ELEVATION_TOLERANCE_DEG = 2.0f;
+const float AIM_COMMAND_LOCK_TOLERANCE_DEG = 0.8f;
+const int SERVO_MIN_WRITE_ANGLE = 0;
+const int SERVO_MAX_WRITE_ANGLE = 180;
+const int AZIMUTH_SERVO_MIN_US = 544;
+const int AZIMUTH_SERVO_MAX_US = 2400;
+const int ELEVATION_SERVO_MIN_US = 544;
+const int ELEVATION_SERVO_MAX_US = 2400;
 const byte TARGET_AZIMUTH_FILTER_NUM = 5;
 const byte TARGET_ELEVATION_FILTER_NUM = 1;
-const unsigned long ECHO_TIMEOUT_US = 26000UL;
+const unsigned long ECHO_TIMEOUT_US = 40000UL;
 const byte HOME_SENSOR_SAMPLE_COUNT = 9;
 const int HOME_SENSOR_DETECT_THRESHOLD = 600;
 const int HOME_SENSOR_RELEASE_THRESHOLD = 560;
@@ -164,6 +176,20 @@ int launchAzimuthAngle = HOME_AZIMUTH;
 int launchElevationAngle = DEFAULT_ELEVATION;
 int targetAzimuthAngle = HOME_AZIMUTH;
 int targetElevationAngle = DEFAULT_ELEVATION;
+float launchAzimuthPosition = HOME_AZIMUTH;
+float launchElevationPosition = DEFAULT_ELEVATION;
+float desiredAzimuthAngle = HOME_AZIMUTH;
+float desiredElevationAngle = DEFAULT_ELEVATION;
+float targetAzimuthCommand = HOME_AZIMUTH;
+float targetElevationCommand = DEFAULT_ELEVATION;
+float filteredAimForwardCm = 0.0f;
+float filteredAimRightCm = 0.0f;
+float filteredAimUpCm = 0.0f;
+float previousAimForwardCm = 0.0f;
+float previousAimRightCm = 0.0f;
+float previousAimUpCm = 0.0f;
+unsigned long lastAimFilterMs = 0;
+bool aimFilterInitialized = false;
 
 unsigned long lastStepperStepUs = 0;
 unsigned long lastSensorMs = 0;
@@ -171,6 +197,7 @@ unsigned long lastServoMs = 0;
 unsigned long lastSerialMs = 0;
 unsigned long lastAlertToneMs = 0;
 unsigned long lastHomeSyncMs = 0;
+unsigned long lastTrackableAimMs = 0;
 unsigned long fireLockStartMs = 0;
 unsigned long firePulseEndMs = 0;
 unsigned long lastFireMs = 0;
@@ -219,6 +246,30 @@ int angleDiffDegrees(int fromAngle, int toAngle) {
   return diff;
 }
 
+float wrapAngle360Float(float angle) {
+  while (angle < 0.0f) angle += 360.0f;
+  while (angle >= 360.0f) angle -= 360.0f;
+  return angle;
+}
+
+float angleDiffDegreesFloat(float fromAngle, float toAngle) {
+  float diff = wrapAngle360Float(toAngle) - wrapAngle360Float(fromAngle);
+  while (diff > 180.0f) diff -= 360.0f;
+  while (diff < -180.0f) diff += 360.0f;
+  return diff;
+}
+
+float constrainFloatValue(float value, float minValue, float maxValue) {
+  if (value < minValue) return minValue;
+  if (value > maxValue) return maxValue;
+  return value;
+}
+
+int roundFloatToInt(float value) {
+  if (value >= 0.0f) return (int)(value + 0.5f);
+  return (int)(value - 0.5f);
+}
+
 int signedStep(int diff, byte numerator, byte denominator) {
   long scaled = (long)diff * numerator;
   if (scaled > 0) scaled += (denominator - 1);
@@ -237,6 +288,42 @@ int filterLinearValue(int currentValue, int measuredValue, byte numerator, byte 
 
 int filterAngleValue(int currentAngle, int measuredAngle, byte numerator, byte denominator) {
   return wrapAngle360(currentAngle + signedStep(angleDiffDegrees(currentAngle, measuredAngle), numerator, denominator));
+}
+
+float smoothFloatValue(float previousValue, float measuredValue, float alpha) {
+  return previousValue + alpha * (measuredValue - previousValue);
+}
+
+float dampFloatValue(float currentValue, float targetValue, float damping) {
+  return currentValue + damping * (targetValue - currentValue);
+}
+
+int servoAngleToPulseUs(float angle, int minPulseUs, int maxPulseUs) {
+  float constrainedAngle = constrainFloatValue(angle, (float)SERVO_MIN_WRITE_ANGLE, (float)SERVO_MAX_WRITE_ANGLE);
+  float ratio = (constrainedAngle - SERVO_MIN_WRITE_ANGLE) / (float)(SERVO_MAX_WRITE_ANGLE - SERVO_MIN_WRITE_ANGLE);
+  return minPulseUs + roundFloatToInt(ratio * (float)(maxPulseUs - minPulseUs));
+}
+
+void writeLaunchAzimuthServo(float angle) {
+  launchAzimuth.writeMicroseconds(servoAngleToPulseUs(angle, AZIMUTH_SERVO_MIN_US, AZIMUTH_SERVO_MAX_US));
+}
+
+void writeLaunchElevationServo(float angle) {
+  launchElevation.writeMicroseconds(servoAngleToPulseUs(angle, ELEVATION_SERVO_MIN_US, ELEVATION_SERVO_MAX_US));
+}
+
+void resetAimStabilizer() {
+  aimFilterInitialized = false;
+  lastAimFilterMs = 0;
+  desiredAzimuthAngle = HOME_AZIMUTH;
+  desiredElevationAngle = DEFAULT_ELEVATION;
+  targetAzimuthCommand = HOME_AZIMUTH;
+  targetElevationCommand = DEFAULT_ELEVATION;
+}
+
+void pauseAimStabilizer() {
+  aimFilterInitialized = false;
+  lastAimFilterMs = 0;
 }
 
 bool isVisibleDistance(int value) {
@@ -263,34 +350,41 @@ int halfStepToAngle(long pos) {
   return (int)((pos * 360L + HALF_STEPS_PER_REV / 2L) / HALF_STEPS_PER_REV) % 360;
 }
 
-int radarAngleToAzimuth(int radarAngle) {
-  int relativeAngle = angleDiffDegrees(turretForwardRadarAngle(), radarAngle);
-  int effectiveLeftSpan = RADAR_AIM_LEFT_SPAN;
-  int effectiveRightSpan = RADAR_AIM_RIGHT_SPAN;
+float radarAngleToAzimuthFloat(float radarAngle) {
+  float relativeAngle = angleDiffDegreesFloat((float)turretForwardRadarAngle(), radarAngle);
+  float effectiveLeftSpan = (float)RADAR_AIM_LEFT_SPAN;
+  float effectiveRightSpan = (float)RADAR_AIM_RIGHT_SPAN;
   if (AZIMUTH_DIRECTION_INVERTED) {
     relativeAngle = -relativeAngle;
     effectiveLeftSpan = RADAR_AIM_RIGHT_SPAN;
     effectiveRightSpan = RADAR_AIM_LEFT_SPAN;
   }
-  relativeAngle = constrain(relativeAngle, -effectiveLeftSpan, effectiveRightSpan);
+  relativeAngle = constrainFloatValue(relativeAngle, -effectiveLeftSpan, effectiveRightSpan);
 
-  if (relativeAngle <= 0) {
-    float ratio = (float)(relativeAngle + effectiveLeftSpan) / (float)effectiveLeftSpan;
+  if (relativeAngle <= 0.0f) {
+    float ratio = (relativeAngle + effectiveLeftSpan) / effectiveLeftSpan;
     float azimuth = MIN_AZIMUTH + ratio * (HOME_AZIMUTH - MIN_AZIMUTH);
-    return constrain((int)(azimuth + 0.5f), MIN_AZIMUTH, HOME_AZIMUTH);
+    return constrainFloatValue(azimuth, (float)MIN_AZIMUTH, (float)HOME_AZIMUTH);
   }
 
-  float ratio = (float)relativeAngle / (float)effectiveRightSpan;
+  float ratio = relativeAngle / effectiveRightSpan;
   float azimuth = HOME_AZIMUTH + ratio * (MAX_AZIMUTH - HOME_AZIMUTH);
-  return constrain((int)(azimuth + 0.5f), HOME_AZIMUTH, MAX_AZIMUTH);
+  return constrainFloatValue(azimuth, (float)HOME_AZIMUTH, (float)MAX_AZIMUTH);
+}
+
+int radarAngleToAzimuth(int radarAngle) {
+  return constrain(
+    roundFloatToInt(radarAngleToAzimuthFloat((float)radarAngle)),
+    MIN_AZIMUTH,
+    MAX_AZIMUTH
+  );
 }
 
 float sensorDistanceToHorizontalProjection(int sensorDistance) {
   if (sensorDistance <= 0) return 1.0f;
 
   float sensorLineDistanceCm = (float)sensorDistance;
-  float targetRelativeToSensorHeightCm =
-    TARGET_REFERENCE_HEIGHT_CM - (LAUNCH_REFERENCE_HEIGHT_CM + SENSOR_HEIGHT_ABOVE_LAUNCH_CM);
+  float targetRelativeToSensorHeightCm = TARGET_REFERENCE_HEIGHT_CM - SENSOR_HEIGHT_CM;
   float verticalTerm = targetRelativeToSensorHeightCm * targetRelativeToSensorHeightCm;
   float lineTerm = sensorLineDistanceCm * sensorLineDistanceCm;
 
@@ -301,14 +395,22 @@ float sensorDistanceToHorizontalProjection(int sensorDistance) {
   return sqrt(lineTerm - verticalTerm);
 }
 
-int radarAngleDistanceToTurretAngle(int radarAngle, int sensorDistance) {
+void radarAngleDistanceToLauncherVector(int radarAngle, int sensorDistance, float* forwardCm, float* rightCm, float* upCm) {
   float angleRad = (float)wrapAngle360(radarAngle) * PI / 180.0f;
   float horizontalProjectionCm = sensorDistanceToHorizontalProjection(sensorDistance);
   float targetForwardCm = cos(angleRad) * horizontalProjectionCm;
   float targetRightCm = sin(angleRad) * horizontalProjectionCm;
 
-  float turretRelativeForwardCm = targetForwardCm - TURRET_OFFSET_FORWARD_CM;
-  float turretRelativeRightCm = targetRightCm - TURRET_OFFSET_RIGHT_CM;
+  *forwardCm = targetForwardCm - TURRET_OFFSET_FORWARD_CM;
+  *rightCm = targetRightCm - TURRET_OFFSET_RIGHT_CM;
+  *upCm = TARGET_REFERENCE_HEIGHT_CM - LAUNCH_REFERENCE_HEIGHT_CM;
+}
+
+int radarAngleDistanceToTurretAngle(int radarAngle, int sensorDistance) {
+  float turretRelativeForwardCm;
+  float turretRelativeRightCm;
+  float turretRelativeUpCm;
+  radarAngleDistanceToLauncherVector(radarAngle, sensorDistance, &turretRelativeForwardCm, &turretRelativeRightCm, &turretRelativeUpCm);
 
   float turretAngleDeg = atan2(turretRelativeRightCm, turretRelativeForwardCm) * DEG_PER_RAD;
   if (turretAngleDeg < 0.0f) turretAngleDeg += 360.0f;
@@ -316,18 +418,25 @@ int radarAngleDistanceToTurretAngle(int radarAngle, int sensorDistance) {
 }
 
 int radarAngleDistanceToTurretDistance(int radarAngle, int sensorDistance) {
-  float angleRad = (float)wrapAngle360(radarAngle) * PI / 180.0f;
-  float horizontalProjectionCm = sensorDistanceToHorizontalProjection(sensorDistance);
-  float targetForwardCm = cos(angleRad) * horizontalProjectionCm;
-  float targetRightCm = sin(angleRad) * horizontalProjectionCm;
-
-  float turretRelativeForwardCm = targetForwardCm - TURRET_OFFSET_FORWARD_CM;
-  float turretRelativeRightCm = targetRightCm - TURRET_OFFSET_RIGHT_CM;
+  float turretRelativeForwardCm;
+  float turretRelativeRightCm;
+  float turretRelativeUpCm;
+  radarAngleDistanceToLauncherVector(radarAngle, sensorDistance, &turretRelativeForwardCm, &turretRelativeRightCm, &turretRelativeUpCm);
 
   float turretDistanceCm = sqrt(turretRelativeForwardCm * turretRelativeForwardCm + turretRelativeRightCm * turretRelativeRightCm);
   if (turretDistanceCm < 1.0f) turretDistanceCm = 1.0f;
   if (turretDistanceCm > TARGET_DETECT_DISTANCE) turretDistanceCm = TARGET_DETECT_DISTANCE;
   return (int)(turretDistanceCm + 0.5f);
+}
+
+float launcherVectorToRadarAngleFloat(float forwardCm, float rightCm) {
+  float turretAngleDeg = atan2(rightCm, forwardCm) * DEG_PER_RAD;
+  if (turretAngleDeg < 0.0f) turretAngleDeg += 360.0f;
+  return wrapAngle360Float(turretAngleDeg);
+}
+
+int launcherVectorToRadarAngle(float forwardCm, float rightCm) {
+  return wrapAngle360(roundFloatToInt(launcherVectorToRadarAngleFloat(forwardCm, rightCm)));
 }
 
 int clampVelocity(int value, int maxAbsValue) {
@@ -504,6 +613,8 @@ void resetTargetSelection() {
 void resetTrackingState() {
   clearTargetMap();
   resetTargetSelection();
+  lastTrackableAimMs = 0;
+  resetAimStabilizer();
   realDistance = -1;
 }
 
@@ -552,8 +663,14 @@ void printRadarStatus() {
   Serial.print(TURRET_OFFSET_FORWARD_CM, 1);
   Serial.print(F(" R="));
   Serial.print(TURRET_OFFSET_RIGHT_CM, 1);
-  Serial.print(F(" H="));
-  Serial.print(SENSOR_HEIGHT_ABOVE_LAUNCH_CM, 1);
+  Serial.print(F(" SENSOR_H="));
+  Serial.print(SENSOR_HEIGHT_CM, 1);
+  Serial.print(F(" LAUNCH_DROP="));
+  Serial.print(SENSOR_TO_LAUNCH_HEIGHT_DROP_CM, 1);
+  Serial.print(F(" LAUNCH_H="));
+  Serial.print(LAUNCH_REFERENCE_HEIGHT_CM, 1);
+  Serial.print(F(" TARGET_H="));
+  Serial.print(TARGET_REFERENCE_HEIGHT_CM, 1);
   Serial.print(F(" | STATE="));
   Serial.print(stateName(currentState));
   Serial.print(F(" | HOME49E="));
@@ -745,9 +862,18 @@ void startFirePulse() {
 
 bool isAimLockedForFire() {
   if (!primaryTargetTrackable) return false;
+  if (!aimFilterInitialized) return false;
+
+  float azimuthPositionError = fabs(desiredAzimuthAngle - launchAzimuthPosition);
+  float elevationPositionError = fabs(desiredElevationAngle - launchElevationPosition);
+  float azimuthCommandError = fabs(desiredAzimuthAngle - targetAzimuthCommand);
+  float elevationCommandError = fabs(desiredElevationAngle - targetElevationCommand);
+
   return
-    abs(targetAzimuthAngle - launchAzimuthAngle) <= FIRE_AZIMUTH_TOLERANCE_DEG &&
-    abs(targetElevationAngle - launchElevationAngle) <= FIRE_ELEVATION_TOLERANCE_DEG;
+    azimuthPositionError <= FIRE_AZIMUTH_TOLERANCE_DEG &&
+    elevationPositionError <= FIRE_ELEVATION_TOLERANCE_DEG &&
+    azimuthCommandError <= AIM_COMMAND_LOCK_TOLERANCE_DEG &&
+    elevationCommandError <= AIM_COMMAND_LOCK_TOLERANCE_DEG;
 }
 
 void serviceFireControl() {
@@ -1101,41 +1227,130 @@ int calculateSmartElevation(int distance, int radialVelocity) {
   return constrain((int)(rawAngle + 0.5f), MIN_ELEVATION, MAX_ELEVATION);
 }
 
+float calculateSmartElevationFromLauncherVector(float forwardCm, float rightCm, float upCm, int radialVelocity) {
+  float horizontalDistanceCm = sqrt(forwardCm * forwardCm + rightCm * rightCm);
+  if (horizontalDistanceCm < 1.0f) horizontalDistanceCm = 1.0f;
+
+  float clampedDistance = constrain(horizontalDistanceCm, (float)(BLIND_ZONE_MAX_DISTANCE + 1), (float)DANGER_MAX_DISTANCE);
+  float closeness = (DANGER_MAX_DISTANCE - clampedDistance) / (float)(DANGER_MAX_DISTANCE - BLIND_ZONE_MAX_DISTANCE);
+  if (closeness < 0.0f) closeness = 0.0f;
+  if (closeness > 1.0f) closeness = 1.0f;
+
+  float pitchOffsetDeg = atan2(upCm, horizontalDistanceCm + ELEVATION_OFFSET_CM) * DEG_PER_RAD;
+  float closeLift = ELEVATION_CLOSE_LIFT_DEG * closeness * closeness;
+  float distanceMeters = horizontalDistanceCm / 100.0f;
+  float dropLift = distanceMeters * distanceMeters * ELEVATION_DROP_GAIN_DEG_PER_M2;
+  float approachLift = 0.0f;
+
+  if (radialVelocity < 0) {
+    approachLift = (-radialVelocity) * ELEVATION_APPROACH_GAIN_DEG_PER_CMPS;
+    if (approachLift > 3.5f) approachLift = 3.5f;
+  }
+
+  float rawAngle = DEFAULT_ELEVATION + ELEVATION_PLATFORM_BIAS_DEG + pitchOffsetDeg + closeLift + dropLift + approachLift;
+  return constrainFloatValue(rawAngle, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
+}
+
 void updateAimTargets() {
-  if (!radarAngleKnown || !primaryTargetTrackable) {
+  unsigned long nowMs = millis();
+
+  if (!radarAngleKnown) {
+    lastTrackableAimMs = 0;
+    desiredAzimuthAngle = HOME_AZIMUTH;
+    desiredElevationAngle = DEFAULT_ELEVATION;
     targetAzimuthAngle = HOME_AZIMUTH;
     targetElevationAngle = DEFAULT_ELEVATION;
-    stopFire();
+    resetAimStabilizer();
     return;
   }
 
-  unsigned long azimuthLeadMs = AZIMUTH_TRACK_LEAD_MS;
-  if (abs(primaryTargetAngularVelocity) > 90) {
-    azimuthLeadMs += 40;
+  if (!primaryTargetTrackable) {
+    if (lastTrackableAimMs != 0 && nowMs - lastTrackableAimMs < AIM_HOME_RETURN_DELAY_MS) {
+      pauseAimStabilizer();
+      return;
+    }
+
+    lastTrackableAimMs = 0;
+    desiredAzimuthAngle = HOME_AZIMUTH;
+    desiredElevationAngle = DEFAULT_ELEVATION;
+    targetAzimuthAngle = HOME_AZIMUTH;
+    targetElevationAngle = DEFAULT_ELEVATION;
+    resetAimStabilizer();
+    return;
   }
 
-  int predictedSensorRadarAngle = predictFutureAngle(primaryTargetAngle, primaryTargetAngularVelocity, azimuthLeadMs);
-  int predictedSensorDistance = predictFutureDistance(primaryTargetDistance, primaryTargetRadialVelocity, ELEVATION_TRACK_LEAD_MS);
+  lastTrackableAimMs = nowMs;
 
-  int desiredRadarAngle = radarAngleDistanceToTurretAngle(predictedSensorRadarAngle, predictedSensorDistance);
-  int desiredRangeForElevation = radarAngleDistanceToTurretDistance(predictedSensorRadarAngle, predictedSensorDistance);
+  float rawForwardCm;
+  float rawRightCm;
+  float rawUpCm;
+  radarAngleDistanceToLauncherVector(primaryTargetAngle, primaryTargetDistance, &rawForwardCm, &rawRightCm, &rawUpCm);
 
-  int desiredAzimuthAngle = constrain(
-    radarAngleToAzimuth(desiredRadarAngle) + AZIMUTH_FIRE_CORRECTION_DEG,
-    MIN_AZIMUTH,
-    MAX_AZIMUTH
+  float dtSec = SENSOR_MEASURE_INTERVAL_MS / 1000.0f;
+  if (!aimFilterInitialized) {
+    filteredAimForwardCm = rawForwardCm;
+    filteredAimRightCm = rawRightCm;
+    filteredAimUpCm = rawUpCm;
+    previousAimForwardCm = filteredAimForwardCm;
+    previousAimRightCm = filteredAimRightCm;
+    previousAimUpCm = filteredAimUpCm;
+    targetAzimuthCommand = launchAzimuthPosition;
+    targetElevationCommand = launchElevationPosition;
+    aimFilterInitialized = true;
+  } else {
+    if (lastAimFilterMs != 0) {
+      dtSec = (nowMs - lastAimFilterMs) / 1000.0f;
+      if (dtSec < 0.02f) dtSec = 0.02f;
+      if (dtSec > 0.50f) dtSec = 0.50f;
+    }
+
+    previousAimForwardCm = filteredAimForwardCm;
+    previousAimRightCm = filteredAimRightCm;
+    previousAimUpCm = filteredAimUpCm;
+    filteredAimForwardCm = smoothFloatValue(filteredAimForwardCm, rawForwardCm, AIM_SMOOTHING_ALPHA);
+    filteredAimRightCm = smoothFloatValue(filteredAimRightCm, rawRightCm, AIM_SMOOTHING_ALPHA);
+    filteredAimUpCm = smoothFloatValue(filteredAimUpCm, rawUpCm, AIM_SMOOTHING_ALPHA);
+  }
+  lastAimFilterMs = nowMs;
+
+  float vx = (filteredAimForwardCm - previousAimForwardCm) / dtSec;
+  float vy = (filteredAimRightCm - previousAimRightCm) / dtSec;
+  float vz = (filteredAimUpCm - previousAimUpCm) / dtSec;
+  float predictSec = AIM_PREDICTION_MS / 1000.0f;
+  float predictedForwardCm = filteredAimForwardCm + vx * predictSec;
+  float predictedRightCm = filteredAimRightCm + vy * predictSec;
+  float predictedUpCm = filteredAimUpCm + vz * predictSec;
+
+  float desiredRadarAngle = launcherVectorToRadarAngleFloat(predictedForwardCm, predictedRightCm);
+  desiredAzimuthAngle = constrainFloatValue(
+    radarAngleToAzimuthFloat(desiredRadarAngle) + AZIMUTH_FIRE_CORRECTION_DEG,
+    (float)MIN_AZIMUTH,
+    (float)MAX_AZIMUTH
   );
-  int desiredElevationAngle = calculateSmartElevation(desiredRangeForElevation, primaryTargetRadialVelocity);
+  desiredElevationAngle = calculateSmartElevationFromLauncherVector(
+    predictedForwardCm,
+    predictedRightCm,
+    predictedUpCm,
+    primaryTargetRadialVelocity
+  );
 
-  if (abs(desiredAzimuthAngle - targetAzimuthAngle) > AZIMUTH_COMMAND_DEADBAND_DEG) {
-    targetAzimuthAngle = filterLinearValue(targetAzimuthAngle, desiredAzimuthAngle, TARGET_AZIMUTH_FILTER_NUM, FILTER_DEN);
+  if (fabs(desiredAzimuthAngle - targetAzimuthCommand) > AZIMUTH_COMMAND_DEADBAND_DEG) {
+    targetAzimuthCommand = dampFloatValue(targetAzimuthCommand, desiredAzimuthAngle, AIM_DAMPING);
+    if (fabs(targetAzimuthCommand - desiredAzimuthAngle) < AZIMUTH_COMMAND_DEADBAND_DEG) targetAzimuthCommand = desiredAzimuthAngle;
+  } else {
+    targetAzimuthCommand = desiredAzimuthAngle;
   }
+  targetAzimuthCommand = constrainFloatValue(targetAzimuthCommand, (float)MIN_AZIMUTH, (float)MAX_AZIMUTH);
+  targetAzimuthAngle = constrain(roundFloatToInt(targetAzimuthCommand), MIN_AZIMUTH, MAX_AZIMUTH);
 
-  if (abs(desiredElevationAngle - targetElevationAngle) > ELEVATION_COMMAND_DEADBAND_DEG) {
-    targetElevationAngle = filterLinearValue(targetElevationAngle, desiredElevationAngle, TARGET_ELEVATION_FILTER_NUM, FILTER_DEN);
+  if (fabs(desiredElevationAngle - targetElevationCommand) > ELEVATION_COMMAND_DEADBAND_DEG) {
+    targetElevationCommand = dampFloatValue(targetElevationCommand, desiredElevationAngle, AIM_DAMPING);
+    if (fabs(targetElevationCommand - desiredElevationAngle) < ELEVATION_COMMAND_DEADBAND_DEG) targetElevationCommand = desiredElevationAngle;
+  } else {
+    targetElevationCommand = desiredElevationAngle;
   }
-
-  stopFire();
+  targetElevationCommand = constrainFloatValue(targetElevationCommand, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
+  targetElevationAngle = constrain(roundFloatToInt(targetElevationCommand), MIN_ELEVATION, MAX_ELEVATION);
 }
 
 void serviceServos() {
@@ -1143,33 +1358,31 @@ void serviceServos() {
   if (nowMs - lastServoMs < SERVO_UPDATE_INTERVAL_MS) return;
   lastServoMs = nowMs;
 
-  int azimuthError = targetAzimuthAngle - launchAzimuthAngle;
-  if (azimuthError > SERVO_POSITION_DEADBAND_DEG) {
-    launchAzimuthAngle += dynamicServoStep(azimuthError, SERVO_AZIMUTH_STEP_DEG, SERVO_AZIMUTH_FAST_STEP_DEG);
-    if (launchAzimuthAngle > targetAzimuthAngle) launchAzimuthAngle = targetAzimuthAngle;
-    launchAzimuth.write(launchAzimuthAngle);
-  } else if (azimuthError < -SERVO_POSITION_DEADBAND_DEG) {
-    launchAzimuthAngle -= dynamicServoStep(-azimuthError, SERVO_AZIMUTH_STEP_DEG, SERVO_AZIMUTH_FAST_STEP_DEG);
-    if (launchAzimuthAngle < targetAzimuthAngle) launchAzimuthAngle = targetAzimuthAngle;
-    launchAzimuth.write(launchAzimuthAngle);
-  } else if (azimuthError != 0) {
-    launchAzimuthAngle = targetAzimuthAngle;
-    launchAzimuth.write(launchAzimuthAngle);
+  float azimuthError = targetAzimuthCommand - launchAzimuthPosition;
+  float azimuthMagnitude = fabs(azimuthError);
+  if (azimuthMagnitude > SERVO_POSITION_DEADBAND_DEG) {
+    float step = (float)dynamicServoStep(roundFloatToInt(azimuthMagnitude), SERVO_AZIMUTH_STEP_DEG, SERVO_AZIMUTH_FAST_STEP_DEG);
+    if (step > azimuthMagnitude) step = azimuthMagnitude;
+    launchAzimuthPosition += azimuthError > 0.0f ? step : -step;
+  } else if (azimuthMagnitude > 0.01f) {
+    launchAzimuthPosition = targetAzimuthCommand;
   }
+  launchAzimuthPosition = constrainFloatValue(launchAzimuthPosition, (float)MIN_AZIMUTH, (float)MAX_AZIMUTH);
+  launchAzimuthAngle = constrain(roundFloatToInt(launchAzimuthPosition), MIN_AZIMUTH, MAX_AZIMUTH);
+  writeLaunchAzimuthServo(launchAzimuthPosition);
 
-  int elevationError = targetElevationAngle - launchElevationAngle;
-  if (elevationError > SERVO_POSITION_DEADBAND_DEG) {
-    launchElevationAngle += dynamicServoStep(elevationError, SERVO_ELEVATION_STEP_DEG, SERVO_ELEVATION_FAST_STEP_DEG);
-    if (launchElevationAngle > targetElevationAngle) launchElevationAngle = targetElevationAngle;
-    launchElevation.write(launchElevationAngle);
-  } else if (elevationError < -SERVO_POSITION_DEADBAND_DEG) {
-    launchElevationAngle -= dynamicServoStep(-elevationError, SERVO_ELEVATION_STEP_DEG, SERVO_ELEVATION_FAST_STEP_DEG);
-    if (launchElevationAngle < targetElevationAngle) launchElevationAngle = targetElevationAngle;
-    launchElevation.write(launchElevationAngle);
-  } else if (elevationError != 0) {
-    launchElevationAngle = targetElevationAngle;
-    launchElevation.write(launchElevationAngle);
+  float elevationError = targetElevationCommand - launchElevationPosition;
+  float elevationMagnitude = fabs(elevationError);
+  if (elevationMagnitude > SERVO_POSITION_DEADBAND_DEG) {
+    float step = (float)dynamicServoStep(roundFloatToInt(elevationMagnitude), SERVO_ELEVATION_STEP_DEG, SERVO_ELEVATION_FAST_STEP_DEG);
+    if (step > elevationMagnitude) step = elevationMagnitude;
+    launchElevationPosition += elevationError > 0.0f ? step : -step;
+  } else if (elevationMagnitude > 0.01f) {
+    launchElevationPosition = targetElevationCommand;
   }
+  launchElevationPosition = constrainFloatValue(launchElevationPosition, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
+  launchElevationAngle = constrain(roundFloatToInt(launchElevationPosition), MIN_ELEVATION, MAX_ELEVATION);
+  writeLaunchElevationServo(launchElevationPosition);
 }
 
 void playAlertPattern(unsigned long nowMs, unsigned long intervalMs, unsigned int freqA, unsigned int freqB, unsigned int durationMs) {
@@ -1265,8 +1478,10 @@ void setup() {
 
   launchAzimuth.attach(LAUNCH_AZIMUTH_PIN);
   launchElevation.attach(LAUNCH_ELEVATION_PIN);
-  launchAzimuth.write(launchAzimuthAngle);
-  launchElevation.write(launchElevationAngle);
+  launchAzimuthPosition = (float)launchAzimuthAngle;
+  launchElevationPosition = (float)launchElevationAngle;
+  writeLaunchAzimuthServo(launchAzimuthPosition);
+  writeLaunchElevationServo(launchElevationPosition);
 
   tone(BUZZER_PIN, 2200, 60);
   digitalWrite(RED_LED_PIN, HIGH);
