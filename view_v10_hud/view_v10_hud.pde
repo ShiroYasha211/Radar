@@ -101,19 +101,20 @@ class EnhancedRadarSystem {
   String alarmStatusText = "آمن";
   String threatLevelText = "دورية بحث روتينية";
   String lastTargetClockText = "--:--:--";
+  String lastTargetDateText = "--/--/----";
   boolean targetDetected = false;
   int totalDetectedTargets = 0;
 
   EnhancedRadarSystem(PApplet p) {
     this.p = p;
-    radarCenter = new PVector(p.width * 0.48f, p.height * 0.47f);
-    radarRadius = min(p.width * 0.22f, p.height * 0.32f);
+    radarCenter = new PVector(p.width * 0.50f, p.height * 0.51f);
+    radarRadius = min(p.width * 0.245f, p.height * 0.345f);
   }
 
   void initialize() {
     font = p.createFont("Tahoma", 14);
     largeFont = p.createFont("Tahoma", 18);
-    extraLargeFont = p.createFont("Tahoma Bold", 26);
+    extraLargeFont = p.createFont("Tahoma Bold", 24);
 
     println("Available serial ports:");
     printAvailablePorts();
@@ -123,7 +124,7 @@ class EnhancedRadarSystem {
 
   void update() {
     serviceSerialInput();
-    p.background(10, 15, 20);
+    drawHudBackdrop();
     cleanupOldPings();
     drawHeader();
     drawMainRadar();
@@ -315,9 +316,7 @@ class EnhancedRadarSystem {
       lastPlottedAngle = angle;
       lastPlottedDistance = distance;
       lastPlottedTime = now;
-      if (!targetDetected && isValidDistance(distance)) {
-        lastTargetClockText = currentClockText();
-      }
+      if (!targetDetected && isValidDistance(distance)) recordLastTargetTime();
       targetDetected = isValidDistance(distance);
     }
   }
@@ -360,33 +359,161 @@ class EnhancedRadarSystem {
     totalDetectedTargets = count;
   }
 
-  void drawHeader() {
-    color codeBlue = p.color(74, 144, 226);
-    float headerRightX = p.width - 60;
-    float headerMiddleX = p.width - 170;
+  void drawHudBackdrop() {
+    p.background(2, 8, 8);
+
+    p.strokeWeight(1);
+    for (int x = 0; x <= p.width; x += 40) {
+      p.stroke(20, 90, 70, x % 160 == 0 ? 55 : 25);
+      p.line(x, 0, x, p.height);
+    }
+    for (int y = 0; y <= p.height; y += 40) {
+      p.stroke(20, 90, 70, y % 160 == 0 ? 55 : 25);
+      p.line(0, y, p.width, y);
+    }
+
+    p.noStroke();
+    for (int y = 0; y < p.height; y += 4) {
+      p.fill(0, 0, 0, 22);
+      p.rect(0, y, p.width, 1);
+    }
+
+    p.fill(0, 0, 0, 120);
+    p.rect(0, 0, p.width, 78);
+    p.rect(0, p.height - 92, p.width, 92);
+  }
+
+  color hudBlue() {
+    return p.color(110, 190, 255);
+  }
+
+  color hudGreen() {
+    return p.color(65, 255, 105);
+  }
+
+  color alertColor() {
+    if (iState == 3) return p.color(255, 70, 50);
+    if (iState == 2) return p.color(255, 220, 70);
+    if (iState == 1) return p.color(80, 255, 130);
+    return hudBlue();
+  }
+
+  String modeLabel() {
+    if (iState == 3) return "TRACK";
+    if (iState == 2) return "MID";
+    if (iState == 1) return "SCAN";
+    return "IDLE";
+  }
+
+  String modeArabicLabel() {
+    if (iState == 3) return "تتبع";
+    if (iState == 2) return "متوسط";
+    if (iState == 1) return "مسح";
+    return "خمول";
+  }
+
+  String fireLabel() {
+    if (iState == 3) return "READY";
+    return "SAFE";
+  }
+
+  String fireArabicLabel() {
+    if (iState == 3) return "جاهز";
+    return "آمن";
+  }
+
+  String connectionArabicLabel() {
+    if (isConnected) return "نشط";
+    return "غير متصل";
+  }
+
+  void hudPanel(float x, float y, float w, float h, String title) {
+    p.pushStyle();
+    p.stroke(hudBlue());
+    p.strokeWeight(1.5f);
+    p.fill(5, 16, 16, 218);
+    p.rect(x, y, w, h, 8);
+
+    p.stroke(35, 255, 120, 80);
+    p.line(x + 14, y + 12, x + w - 14, y + 12);
+    p.line(x + 14, y + h - 12, x + w - 14, y + h - 12);
 
     p.textAlign(PConstants.CENTER);
-    p.textFont(extraLargeFont);
-    p.fill(codeBlue);
-    p.text("نموذج مصغر يحاكي منظومة دفاع جوي ورادار إنذار مبكر", p.width/2, 45);
-
-    p.textAlign(PConstants.RIGHT);
     p.textFont(largeFont);
-    p.fill(codeBlue);
-    p.text("الدفعة 34 دفاع جوي /", headerRightX, 35);
+    p.fill(220, 245, 235);
+    p.text(title, x + w / 2.0f, y + 28);
+    p.popStyle();
+  }
 
-    p.textAlign(PConstants.CENTER);
-    p.fill(255);
-    p.text("إعداد", headerMiddleX, 62);
-
-    p.textAlign(PConstants.RIGHT);
-    p.fill(255, 50, 50);
-    p.text("المهندس : عماد الصبري", headerRightX, 89);
-
+  void hudBadge(float x, float y, float w, float h, String value, String caption, color c) {
+    p.pushStyle();
+    p.stroke(c);
+    p.strokeWeight(1.2f);
+    p.fill(p.red(c), p.green(c), p.blue(c), 18);
+    p.rect(x, y, w, h, 6);
     p.textAlign(PConstants.CENTER);
     p.textFont(font);
-    p.fill(100, 200, 100);
-    p.text("360°", p.width/2, 82);
+    p.fill(c);
+    p.text(value, x + w / 2.0f, y + 22);
+    p.fill(c);
+    p.text(caption, x + w / 2.0f, y + h - 10);
+    p.popStyle();
+  }
+
+  void drawMetric(float x, float y, String label, String value, color c) {
+    p.textAlign(PConstants.LEFT);
+    p.textFont(font);
+    p.fill(170, 210, 195);
+    p.text(label, x, y);
+    p.fill(c);
+    p.text(value, x + 118, y);
+  }
+
+  void drawTurretSilhouette(float x, float y) {
+    p.pushStyle();
+    p.noStroke();
+    p.fill(85, 95, 88);
+    p.rect(x - 64, y + 60, 128, 12, 4);
+    p.fill(55, 65, 62);
+    p.rect(x - 46, y + 40, 92, 22, 5);
+    p.fill(110, 120, 112);
+    p.ellipse(x - 20, y + 22, 58, 58);
+    p.fill(32, 38, 38);
+    p.ellipse(x - 20, y + 22, 31, 31);
+    p.stroke(255, 225, 80, 230);
+    p.strokeWeight(5);
+    p.line(x + 2, y + 7, x + 116, y - 45);
+    p.stroke(255, 230, 110, 90);
+    p.strokeWeight(12);
+    p.line(x + 48, y - 14, x + 132, y - 52);
+    p.popStyle();
+  }
+
+  void drawHeader() {
+    p.textAlign(PConstants.CENTER);
+    p.textFont(extraLargeFont);
+    p.fill(hudBlue());
+    p.text("نموذج مصغر يحاكي منظومة دفاع جوي ورادار إنذار مبكر", p.width / 2.0f, 45);
+
+    p.textFont(font);
+    p.fill(110, 190, 255);
+    p.text("360°", p.width / 2.0f, 78);
+
+    float rightHeaderCenterX = p.width - 199;
+    float headerMiddleX = rightHeaderCenterX + 10;
+    p.textAlign(PConstants.CENTER);
+    p.textFont(font);
+    p.fill(hudBlue());
+    p.text("الدفعة 34 دفاع جوي /", rightHeaderCenterX, 34);
+
+    p.textAlign(PConstants.CENTER);
+    p.fill(220, 240, 230);
+    p.text("إعداد", headerMiddleX, 58);
+
+    p.textAlign(PConstants.CENTER);
+    p.textFont(largeFont);
+    p.fill(255, 70, 60);
+    p.text("المهندس: عماد الصبري", rightHeaderCenterX, 84);
   }
 
   void drawMainRadar() {
@@ -400,56 +527,67 @@ class EnhancedRadarSystem {
   }
 
   void drawEnhancedRadarGrid() {
-    p.strokeWeight(2);
+    p.noStroke();
+    for (int glow = 0; glow < 10; glow++) {
+      p.fill(20, 255, 90, 2);
+      float d = radarRadius * 2 + glow * 12;
+      p.ellipse(0, 0, d, d);
+    }
+
+    p.strokeWeight(1.4f);
     int ringCount = 9;
-    float ringStep = radarRadius / (float)ringCount;
 
     for (int i = 1; i <= ringCount; i++) {
       float distance = i * 50;
       float rr = p.map(distance, 0, displayMaxRangeCm, 0, radarRadius);
 
       color ringColor = (i == ringCount) ? p.color(110, 190, 255) : getRangeColor(distance);
-      p.stroke(p.red(ringColor), p.green(ringColor), p.blue(ringColor), 170);
+      p.stroke(p.red(ringColor), p.green(ringColor), p.blue(ringColor), i == ringCount ? 210 : 95);
       p.noFill();
       p.ellipse(0, 0, rr * 2, rr * 2);
 
-      p.fill(200, 220, 255);
-      p.textSize(12);
+      p.fill(i == ringCount ? p.color(170, 225, 255) : p.color(130, 175, 155));
+      p.textSize(11);
       p.textAlign(PConstants.CENTER);
-      String distLabel = int(distance) + " سم";
-
-      float labelRadius = rr - ringStep;
-      if (labelRadius < ringStep * 0.6f) labelRadius = ringStep * 0.6f;
-
-      if (distance == 50) {
-        p.fill(255, 220, 120);
-        p.textSize(14);
-        p.text(distLabel, 0, -14);
-      } else {
-        p.text(distLabel, 0, -labelRadius - 8);
-        p.text(distLabel, 0, labelRadius + 15);
-        p.textAlign(PConstants.LEFT);
-        p.text(distLabel, labelRadius + 5, 0);
-        p.textAlign(PConstants.RIGHT);
-        p.text(distLabel, -labelRadius - 5, 0);
-        p.textAlign(PConstants.CENTER);
-      }
+      p.text(int(distance) + "cm", 0, rr - 4);
     }
 
     for (int angle = 0; angle < 360; angle += 30) {
-      p.stroke(130, 190, 255, (angle % 90 == 0) ? 240 : 150);
-      p.strokeWeight((angle % 90 == 0) ? 3 : 1);
+      p.stroke(80, 255, 130, (angle % 90 == 0) ? 160 : 65);
+      p.strokeWeight((angle % 90 == 0) ? 2.2f : 1);
       float rad = p.radians(angle - 90);
       p.line(0, 0, p.cos(rad) * radarRadius, p.sin(rad) * radarRadius);
 
-      p.fill(255);
-      p.textSize(16);
-      p.text(angle + "°", p.cos(rad) * (radarRadius + 30), p.sin(rad) * (radarRadius + 30));
+      p.fill(205, 230, 220);
+      p.textSize(angle % 90 == 0 ? 16 : 13);
+      p.text(angle + "°", p.cos(rad) * (radarRadius + 28), p.sin(rad) * (radarRadius + 28));
     }
 
-    p.fill(255, 220, 0);
+    for (int angle = 0; angle < 360; angle += 2) {
+      float rad = p.radians(angle - 90);
+      boolean majorTick = angle % 10 == 0;
+      boolean midTick = angle % 5 == 0;
+      float tickLen = majorTick ? 18 : (midTick ? 12 : 7);
+      float outerR = radarRadius + 2;
+      float innerR = outerR - tickLen;
+      int alpha = majorTick ? 245 : (midTick ? 145 : 70);
+      p.stroke(majorTick ? hudBlue() : hudGreen(), alpha);
+      p.strokeWeight(majorTick ? 2.3f : (midTick ? 1.35f : 1.0f));
+      p.line(
+        p.cos(rad) * innerR,
+        p.sin(rad) * innerR,
+        p.cos(rad) * outerR,
+        p.sin(rad) * outerR
+      );
+    }
+
+    p.stroke(40, 255, 120, 230);
+    p.strokeWeight(2);
+    p.line(-14, 0, 14, 0);
+    p.line(0, -14, 0, 14);
+    p.fill(20, 255, 90);
     p.noStroke();
-    p.ellipse(0, 0, 12, 12);
+    p.ellipse(0, 0, 10, 10);
   }
 
   void drawRadarPoints() {
@@ -459,15 +597,44 @@ class EnhancedRadarSystem {
         float rr = p.map(ping.distance, 0, displayMaxRangeCm, 0, radarRadius);
         float x = p.cos(a) * rr;
         float y = p.sin(a) * rr;
-        int alpha = (int)p.map(p.millis() - ping.timestamp, 0, pingLifetimeMs(ping.distance), 255, 0);
+        int alpha = (int)p.constrain(p.map(p.millis() - ping.timestamp, 0, pingLifetimeMs(ping.distance), 255, 0), 0, 255);
 
         color c = getRangeColor(ping.distance);
         p.noStroke();
-        p.fill(p.red(c), p.green(c), p.blue(c), alpha * 0.65f);
+        p.fill(p.red(c), p.green(c), p.blue(c), alpha * 0.45f);
         p.ellipse(x, y, 10, 10);
         p.fill(c, alpha);
         p.ellipse(x, y, 5, 5);
       }
+    }
+
+    if (isValidDistance(iDistance)) {
+      float targetRad = p.radians(iAngle - 90);
+      float targetR = p.map(iDistance, 0, displayMaxRangeCm, 0, radarRadius);
+      float x = p.cos(targetRad) * targetR;
+      float y = p.sin(targetRad) * targetR;
+      color lockColor = alertColor();
+
+      p.stroke(p.red(lockColor), p.green(lockColor), p.blue(lockColor), 190);
+      p.strokeWeight(1.5f);
+      p.line(0, 0, x, y);
+      p.noStroke();
+      p.fill(p.red(lockColor), p.green(lockColor), p.blue(lockColor), 80);
+      p.ellipse(x, y, 24, 24);
+      p.fill(lockColor);
+      p.ellipse(x, y, 8, 8);
+
+      p.stroke(p.red(lockColor), p.green(lockColor), p.blue(lockColor), 210);
+      p.fill(5, 18, 18, 228);
+      float labelX = p.constrain(x + 26, -radarRadius + 30, radarRadius - 115);
+      float labelY = p.constrain(y - 34, -radarRadius + 18, radarRadius - 50);
+      p.rect(labelX, labelY, 112, 42, 5);
+      p.textAlign(PConstants.CENTER);
+      p.textFont(font);
+      p.fill(lockColor);
+      p.text("TARGET LOCK", labelX + 56, labelY + 17);
+      p.fill(255);
+      p.text(iDistance + " cm", labelX + 56, labelY + 34);
     }
   }
 
@@ -475,125 +642,182 @@ class EnhancedRadarSystem {
     int turretRadarAngle = azimuthToRadarAngle(iAzimuth);
     float azimuthRad = p.radians(turretRadarAngle - 90);
 
-    if (isValidDistance(iDistance)) {
-      float targetRad = p.radians(iAngle - 90);
-      float targetR = p.map(iDistance, 0, displayMaxRangeCm, 0, radarRadius);
-      p.stroke(255, 0, 0, 100);
-      p.strokeWeight(1);
-      p.line(0, 0, p.cos(targetRad) * targetR, p.sin(targetRad) * targetR);
-    }
-
-    if (iState == 3) p.stroke(255, 70, 50, 245);
-    else if (iState == 2) p.stroke(255, 235, 80, 220);
-    else if (iState == 1) p.stroke(80, 255, 130, 220);
-    else p.stroke(100, 190, 255, 170);
+    color c = alertColor();
 
     float sighterLen = radarRadius * 0.85f;
-    p.strokeWeight(iState == 3 ? 8 : 4);
+    p.stroke(p.red(c), p.green(c), p.blue(c), 210);
+    p.strokeWeight(iState == 3 ? 7 : 4);
     p.line(0, 0, p.cos(azimuthRad) * sighterLen, p.sin(azimuthRad) * sighterLen);
 
     float tx = p.cos(azimuthRad) * sighterLen;
     float ty = p.sin(azimuthRad) * sighterLen;
     p.noStroke();
+    p.fill(p.red(c), p.green(c), p.blue(c), 60);
+    p.ellipse(tx, ty, 22, 22);
     p.fill(255);
-    p.ellipse(tx, ty, 10, 10);
-    p.fill(0, 180, 255);
+    p.ellipse(tx, ty, 7, 7);
+    p.fill(120, 215, 255);
     p.textAlign(PConstants.CENTER);
     p.textSize(12);
-    p.text("ELV: " + iElevation + "°", tx, ty - 15);
+    p.text("ELV " + iElevation + "°", tx, ty - 16);
   }
 
   void drawSweepIndicator() {
     p.noStroke();
-    for (int i = 0; i < 25; i++) {
-      float sweepAngle = currentAngle - i;
+    for (int i = 0; i < 34; i++) {
+      float sweepAngle = currentAngle - i * 1.35f;
       if (sweepAngle < 0) sweepAngle += 360;
       float startAngle = p.radians(sweepAngle - 90);
-      float endAngle = p.radians(sweepAngle - 91);
-      int alpha = (int)p.map(i, 0, 25, 255, 0);
-      p.fill(80, 255, 120, alpha * 0.42f);
+      float endAngle = p.radians(sweepAngle - 91.35f);
+      int alpha = (int)p.map(i, 0, 34, 180, 0);
+      p.fill(60, 255, 100, alpha * 0.35f);
       p.arc(0, 0, radarRadius * 2, radarRadius * 2, endAngle, startAngle);
     }
 
     float angleRad = p.radians(currentAngle - 90);
-    p.stroke(90, 255, 130, 240);
-    p.strokeWeight(4);
+    p.stroke(80, 255, 120, 240);
+    p.strokeWeight(3);
     p.line(0, 0, p.cos(angleRad) * radarRadius, p.sin(angleRad) * radarRadius);
   }
 
   void drawLeftInfoPanel() {
-    p.pushMatrix();
-    p.translate(42, 110);
-    p.stroke(110, 190, 255);
-    p.fill(20, 25, 30, 220);
-    p.rect(0, 0, 320, 74, 8);
-    p.fill(180, 220, 255);
-    p.textFont(font);
+    float x = 38;
+    float w = 322;
+
+    hudPanel(x, 118, w, 98, "حالة الاتصال");
     p.textAlign(PConstants.LEFT);
-    p.text("حالة الاتصال:", 15, 25);
-    p.fill(isConnected ? p.color(100, 255, 100) : p.color(255, 100, 100));
-    p.text((isConnected ? "متصل " : "غير متصل ") + connectionStatus, 15, 52);
-    p.popMatrix();
+    p.textFont(largeFont);
+    p.fill(isConnected ? hudGreen() : p.color(255, 75, 65));
+    p.ellipse(x + 34, 176, 13, 13);
+    p.text((isConnected ? "متصل - " : "غير متصل - ") + portName, x + 58, 182);
+
+    hudPanel(x, 238, w, 220, "مستوى التهديد");
+    p.textAlign(PConstants.LEFT);
+    p.textFont(largeFont);
+    p.fill(alertColor());
+    p.text(modeLabel(), x + 24, 292);
+    p.textFont(font);
+    p.fill(alertColor());
+    p.text(threatLevelText, x + 24, 316, w - 48, 42);
+    drawMetric(x + 24, 362, "المسافة", distanceLabel(iDistance), p.color(255));
+    drawMetric(x + 24, 390, "الزاوية", iAngle + "°", p.color(255));
+    drawMetric(x + 24, 418, "آخر رصد", getLastTargetTime(), p.color(255));
+    drawMetric(x + 24, 446, "التاريخ", getLastTargetDate(), p.color(255));
+
+    hudPanel(x, 472, w, 270, "النظام المسلح");
+    drawTurretSilhouette(x + 148, 545);
+    drawMetric(x + 185, 622, "الاتجاه", iAzimuth + "°", hudGreen());
+    drawMetric(x + 185, 650, "الارتفاع", iElevation + "°", p.color(255, 215, 70));
+    p.textAlign(PConstants.CENTER);
+    p.textFont(largeFont);
+    p.fill(alertColor());
+    p.text(alarmStatusText, x + w / 2.0f, 710);
   }
 
   void drawRightInfoPanel() {
-    float panelWidth = 350;
-    float x = p.width - panelWidth - 70;
-    float y = 110;
-    p.pushMatrix();
-    p.translate(x, y);
-    p.stroke(110, 190, 255);
-    p.fill(20, 25, 30, 220);
-    p.rect(0, 0, panelWidth, 410, 8);
+    float w = 322;
+    float x = p.width - w - 38;
 
-    p.textAlign(PConstants.LEFT);
-    p.textFont(largeFont);
-    p.fill(180, 220, 255);
-    p.text("معلومات البرج والأهداف", 20, 30);
+    hudPanel(x, 118, w, 132, "مؤشر الحالة");
+    hudBadge(x + 28, 166, 78, 58, "SCAN", "مسح", iState >= 1 ? hudBlue() : p.color(65, 100, 115));
+    hudBadge(x + 122, 166, 78, 58, "TRACK", "تتبع", iState == 3 ? p.color(255, 210, 70) : p.color(90, 95, 55));
+    hudBadge(x + 216, 166, 78, 58, "FIRE", "إطلاق", iState == 3 ? p.color(255, 70, 55) : p.color(90, 35, 35));
 
-    p.textFont(font);
-    int ly = 65;
-    p.fill(200, 255, 200);
-    p.text("زاوية عين الرادار: " + iAngle + "°", 20, ly); ly += 30;
-    p.text("مسافة الهدف: " + distanceLabel(iDistance), 20, ly); ly += 30;
+    hudPanel(x, 274, w, 234, "HUD عسكري");
+    drawMiniHud(x + 22, 316, w - 44, 150);
+    drawMetric(x + 28, 486, "محور الرادار", iAngle + "°", hudBlue());
+    drawMetric(x + 170, 486, "البرج", iAzimuth + "°", hudGreen());
 
-    color statusColor = p.color(100, 180, 255);
-    if (iState == 3) statusColor = p.color(255, 50, 50);
-    else if (iState == 2) statusColor = p.color(255, 255, 0);
-    else if (iState == 1) statusColor = p.color(50, 255, 50);
+    hudPanel(x, 532, w, 210, "سجل التتبع");
+    drawTrackHistory(x + 26, 582, w - 52, 118);
+  }
 
-    p.fill(statusColor);
-    p.text("المنظومة: " + alarmStatusText, 20, ly); ly += 30;
-    p.text("التنشط: " + threatLevelText, 20, ly); ly += 35;
+  void drawMiniHud(float x, float y, float w, float h) {
+    p.pushStyle();
+    p.stroke(40, 105, 85);
+    p.fill(2, 18, 14, 190);
+    p.rect(x, y, w, h, 4);
 
-    p.fill(200, 220, 255);
-    p.text("اتجاه برج الإطلاق: " + iAzimuth + "°", 20, ly); ly += 30;
-    p.text("ارتفاع الإطلاق: " + iElevation + "°", 20, ly); ly += 30;
+    float cx = x + w / 2.0f;
+    float cy = y + h / 2.0f;
+    float r = min(w, h) * 0.42f;
 
-    float dangerLevel = isValidDistance(iDistance) ? p.map(iDistance, 0, displayMaxRangeCm, 250, 0) : 0;
-    dangerLevel = p.constrain(dangerLevel, 0, panelWidth - 40);
-    float mix = isValidDistance(iDistance) ? p.map(iDistance, 0, displayMaxRangeCm, 0, 1) : 1;
-    color barColor = p.lerpColor(p.color(255, 0, 0), p.color(0, 255, 0), mix);
-    p.noStroke();
-    p.fill(barColor);
-    p.rect(20, ly, dangerLevel, 10, 5); ly += 25;
-
-    p.fill(255);
-    p.text("مستوى الخطر", 20, ly); ly += 30;
-
-    p.fill(200, 220, 255);
-    p.text("وقت آخر رصد: " + getLastTargetTime(), 20, ly); ly += 30;
-
-    p.fill(100, 255, 100);
-    p.text("كمية الأهداف بالسجل: " + totalDetectedTargets, 20, ly);
-
-    if (iAngle > 180 && iState > 0) {
-      ly += 30;
-      p.fill(255, 100, 50);
-      p.text("الهدف خارج النطاق (خلف البرج)", 10, ly);
+    p.noFill();
+    p.stroke(30, 180, 80, 90);
+    for (int i = 1; i <= 3; i++) {
+      p.ellipse(cx, cy, r * i / 1.5f, r * i / 1.5f);
     }
 
-    p.popMatrix();
+    p.stroke(60, 255, 100, 170);
+    p.line(cx - r, cy, cx + r, cy);
+    p.line(cx, cy - r, cx, cy + r);
+
+    float turretRad = p.radians(azimuthToRadarAngle(iAzimuth) - 90);
+    p.stroke(255, 215, 75, 210);
+    p.line(cx, cy, cx + p.cos(turretRad) * r, cy + p.sin(turretRad) * r);
+
+    if (isValidDistance(iDistance)) {
+      float targetRad = p.radians(iAngle - 90);
+      float targetR = p.map(iDistance, 0, displayMaxRangeCm, 0, r);
+      p.noStroke();
+      p.fill(255, 80, 60);
+      p.ellipse(cx + p.cos(targetRad) * targetR, cy + p.sin(targetRad) * targetR, 9, 9);
+    }
+
+    p.popStyle();
+  }
+
+  void drawTrackHistory(float x, float y, float w, float h) {
+    p.pushStyle();
+    p.stroke(35, 105, 85);
+    p.fill(2, 18, 14, 190);
+    p.rect(x, y, w, h, 4);
+
+    float plotX = x + 36;
+    float plotY = y + 10;
+    float plotW = w - 48;
+    float plotH = h - 34;
+
+    p.stroke(25, 130, 90, 95);
+    p.fill(150, 190, 175);
+    p.textFont(font);
+    p.textAlign(PConstants.RIGHT);
+    for (int cm = 0; cm <= 400; cm += 100) {
+      float gy = p.map(cm, 0, 400, plotY + plotH, plotY);
+      p.line(plotX, gy, plotX + plotW, gy);
+      p.text(cm, plotX - 6, gy + 4);
+    }
+
+    p.textAlign(PConstants.CENTER);
+    for (int angle = 0; angle <= 360; angle += 90) {
+      float gx = p.map(angle, 0, 360, plotX, plotX + plotW);
+      p.line(gx, plotY, gx, plotY + plotH);
+      p.text(angle, gx, plotY + plotH + 18);
+    }
+
+    synchronized (pings) {
+      int start = max(0, pings.size() - 26);
+      float lastX = 0;
+      float lastY = 0;
+      boolean hasLast = false;
+      for (int i = start; i < pings.size(); i++) {
+        RadarPing ping = pings.get(i);
+        float px = p.map(wrapAngle360((int)ping.angle), 0, 360, plotX, plotX + plotW);
+        float py = p.map(p.constrain(ping.distance, 0, 400), 0, 400, plotY + plotH, plotY);
+        color c = getRangeColor(ping.distance);
+        if (hasLast) {
+          p.stroke(255, 205, 70, 160);
+          p.line(lastX, lastY, px, py);
+        }
+        p.noStroke();
+        p.fill(c);
+        p.ellipse(px, py, 6, 6);
+        lastX = px;
+        lastY = py;
+        hasLast = true;
+      }
+    }
+    p.popStyle();
   }
 
   String distanceLabel(int value) {
@@ -605,35 +829,44 @@ class EnhancedRadarSystem {
   }
 
   void drawStatusBar() {
-    float leftStatusX = p.width * 0.16f;
-    float rightStatusX = p.width * 0.84f;
+    float y = p.height - 78;
+    float h = 54;
+    float margin = 38;
+    float gap = 12;
+    float boxW = (p.width - margin * 2.0f - gap * 5.0f) / 6.0f;
+    String[] labels = {"STATUS", "TARGETS", "MODE", "ANGLE", "DISTANCE", "SYSTEM"};
+    String[] values = {
+      connectionArabicLabel(),
+      totalDetectedTargets + " هدف",
+      modeArabicLabel(),
+      "رادار " + iAngle + "° / برج " + iAzimuth + "°",
+      distanceLabel(iDistance),
+      fireArabicLabel()
+    };
+    color[] colors = {
+      isConnected ? hudGreen() : p.color(255, 70, 55),
+      hudBlue(),
+      alertColor(),
+      p.color(230, 240, 220),
+      p.color(230, 240, 220),
+      iState == 3 ? p.color(255, 70, 55) : hudGreen()
+    };
 
-    p.fill(0, 0, 0, 165);
-    p.noStroke();
-    p.rect(0, p.height - 86, p.width, 86);
-
-    p.fill(0, 255, 0);
-    p.textSize(16);
-    p.textAlign(PConstants.LEFT);
-    p.text("محور العدسة: " + iAngle + "°", leftStatusX, p.height - 50);
-    p.text("المنفذ: " + portName, leftStatusX, p.height - 22);
-
-    p.textAlign(PConstants.CENTER);
-    p.text("المسافة: " + distanceLabel(iDistance), p.width/2.0f, p.height - 50);
-    p.text("توجيه المدفع: " + iAzimuth + "° | الارتفاع: " + iElevation + "°", p.width/2.0f, p.height - 22);
-
-    p.textAlign(PConstants.RIGHT);
-    if (iState == 3) {
-      p.fill(255, 50, 50);
-      p.text("التهديد: " + threatLevelText, rightStatusX, p.height - 50);
-    } else {
-      if (iState == 2) p.fill(255, 255, 0);
-      else if (iState == 1) p.fill(0, 255, 0);
-      else p.fill(100, 180, 255);
-      p.text("الاستعداد: " + threatLevelText, rightStatusX, p.height - 50);
+    float x = margin;
+    p.textFont(font);
+    for (int i = 0; i < labels.length; i++) {
+      float w = boxW;
+      p.stroke(hudBlue(), 130);
+      p.strokeWeight(1.2f);
+      p.fill(5, 18, 18, 225);
+      p.rect(x, y, w, h, 6);
+      p.textAlign(PConstants.LEFT);
+      p.fill(hudBlue());
+      p.text(labels[i] + ":", x + 18, y + 34);
+      p.fill(colors[i]);
+      p.text(values[i], x + 92, y + 34);
+      x += w + gap;
     }
-    p.fill(180, 220, 255);
-    p.text(alarmStatusText, rightStatusX, p.height - 22);
   }
 
   void handleVisualAlarm() {
@@ -653,19 +886,19 @@ class EnhancedRadarSystem {
       alarmStatusText = "خمول / منطقة عمياء";
       targetDetected = false;
     } else if (iState == 1) {
-      threatLevelText = "تم رصد هدف بعيد (من 301 إلى 450 سم)";
+      threatLevelText = "تم رصد هدف بعيد (من 301 إلى 500 سم)";
       alarmStatusText = "إنذار بعيد";
-      if (!targetDetected && isValidDistance(iDistance)) lastTargetClockText = currentClockText();
+      if (!targetDetected && isValidDistance(iDistance)) recordLastTargetTime();
       targetDetected = true;
     } else if (iState == 2) {
       threatLevelText = "تم رصد هدف متوسط المدى (من 201 إلى 300 سم)";
       alarmStatusText = "إنذار متوسط";
-      if (!targetDetected && isValidDistance(iDistance)) lastTargetClockText = currentClockText();
+      if (!targetDetected && isValidDistance(iDistance)) recordLastTargetTime();
       targetDetected = true;
     } else if (iState == 3) {
       threatLevelText = "تم رصد هدف خطر مع تتبع وتصويب (من 41 إلى 200 سم)";
       alarmStatusText = "خطر مع تتبع";
-      if (!targetDetected && isValidDistance(iDistance)) lastTargetClockText = currentClockText();
+      if (!targetDetected && isValidDistance(iDistance)) recordLastTargetTime();
       targetDetected = true;
     }
   }
@@ -724,10 +957,27 @@ class EnhancedRadarSystem {
   }
 
   String currentClockText() {
-    return nf(p.hour(), 2) + ":" + nf(p.minute(), 2) + ":" + nf(p.second(), 2);
+    int hour24 = p.hour();
+    int hour12 = hour24 % 12;
+    if (hour12 == 0) hour12 = 12;
+    String period = hour24 >= 12 ? "PM" : "AM";
+    return nf(hour12, 2) + ":" + nf(p.minute(), 2) + ":" + nf(p.second(), 2) + " " + period;
+  }
+
+  String currentDateText() {
+    return nf(p.day(), 2) + "/" + nf(p.month(), 2) + "/" + p.year();
+  }
+
+  void recordLastTargetTime() {
+    lastTargetClockText = currentClockText();
+    lastTargetDateText = currentDateText();
   }
 
   String getLastTargetTime() {
     return lastTargetClockText;
+  }
+
+  String getLastTargetDate() {
+    return lastTargetDateText;
   }
 }

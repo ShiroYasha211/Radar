@@ -46,7 +46,7 @@ const byte MAX_STEPPER_LAG_STEPS = 2;
 const byte MAX_STEPPER_CATCHUP_STEPS = 4;
 
 const int BLIND_ZONE_MAX_DISTANCE = 40;
-const int DANGER_MAX_DISTANCE = 150;
+const int DANGER_MAX_DISTANCE = 200;
 const int MID_MAX_DISTANCE = 300;
 const int TARGET_DETECT_DISTANCE = 500;
 
@@ -69,7 +69,7 @@ const int TARGET_SCORE_STABILITY_MAX_BONUS = 120;
 const int TARGET_SCORE_DANGER_BONUS = 180;
 const int TARGET_SCORE_AIMABLE_BONUS = 90;
 
-const byte FILTER_DEN = 7;
+const byte FILTER_DEN = 10;
 const byte ANGLE_FILTER_NUM = 4;
 const byte DIST_FILTER_NUM = 3;
 const byte VELOCITY_FILTER_NUM = 3;
@@ -94,6 +94,7 @@ const float TARGET_REFERENCE_HEIGHT_CM = 25.0f;
 const int MIN_ELEVATION = 20;
 const int MAX_ELEVATION = 90;
 const int DEFAULT_ELEVATION = 45;
+const int TARGETING_ELEVATION = 55;
 const float ELEVATION_OFFSET_CM = 8.0f;
 const float ELEVATION_PLATFORM_BIAS_DEG = 0.0f;
 const float ELEVATION_CLOSE_LIFT_DEG = 12.0f;
@@ -108,6 +109,7 @@ const unsigned long SENSOR_MEASURE_INTERVAL_MS = 85;
 const unsigned long TARGET_MEMORY_MS = 1200;
 const unsigned long TARGET_PREDICTION_LIMIT_MS = 350;
 const unsigned long AIM_HOME_RETURN_DELAY_MS = 4000;
+const unsigned long ELEVATION_HOME_RETURN_DELAY_MS = 2000;
 const unsigned long SERVO_UPDATE_INTERVAL_MS = 20;
 const unsigned long SERIAL_UPDATE_INTERVAL_MS = SENSOR_MEASURE_INTERVAL_MS;
 const unsigned long HOME_SWITCH_DEBOUNCE_MS = 40;
@@ -136,7 +138,7 @@ const int ELEVATION_SERVO_MIN_US = 544;
 const int ELEVATION_SERVO_MAX_US = 2400;
 const byte TARGET_AZIMUTH_FILTER_NUM = 5;
 const byte TARGET_ELEVATION_FILTER_NUM = 1;
-const unsigned long ECHO_TIMEOUT_US = 40000UL;
+const unsigned long ECHO_TIMEOUT_US = 50000UL;
 const byte HOME_SENSOR_SAMPLE_COUNT = 9;
 const int HOME_SENSOR_DETECT_THRESHOLD = 600;
 const int HOME_SENSOR_RELEASE_THRESHOLD = 560;
@@ -1265,7 +1267,12 @@ void updateAimTargets() {
   }
 
   if (!primaryTargetTrackable) {
-    if (lastTrackableAimMs != 0 && nowMs - lastTrackableAimMs < AIM_HOME_RETURN_DELAY_MS) {
+    unsigned long timeSinceLastTargetMs = lastTrackableAimMs == 0 ? AIM_HOME_RETURN_DELAY_MS : nowMs - lastTrackableAimMs;
+    if (lastTrackableAimMs != 0 && timeSinceLastTargetMs < AIM_HOME_RETURN_DELAY_MS) {
+      float holdElevation = timeSinceLastTargetMs < ELEVATION_HOME_RETURN_DELAY_MS ? (float)TARGETING_ELEVATION : (float)DEFAULT_ELEVATION;
+      desiredElevationAngle = constrainFloatValue(holdElevation, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
+      targetElevationCommand = desiredElevationAngle;
+      targetElevationAngle = constrain(roundFloatToInt(targetElevationCommand), MIN_ELEVATION, MAX_ELEVATION);
       pauseAimStabilizer();
       return;
     }
@@ -1315,11 +1322,9 @@ void updateAimTargets() {
 
   float vx = (filteredAimForwardCm - previousAimForwardCm) / dtSec;
   float vy = (filteredAimRightCm - previousAimRightCm) / dtSec;
-  float vz = (filteredAimUpCm - previousAimUpCm) / dtSec;
   float predictSec = AIM_PREDICTION_MS / 1000.0f;
   float predictedForwardCm = filteredAimForwardCm + vx * predictSec;
   float predictedRightCm = filteredAimRightCm + vy * predictSec;
-  float predictedUpCm = filteredAimUpCm + vz * predictSec;
 
   float desiredRadarAngle = launcherVectorToRadarAngleFloat(predictedForwardCm, predictedRightCm);
   desiredAzimuthAngle = constrainFloatValue(
@@ -1327,12 +1332,7 @@ void updateAimTargets() {
     (float)MIN_AZIMUTH,
     (float)MAX_AZIMUTH
   );
-  desiredElevationAngle = calculateSmartElevationFromLauncherVector(
-    predictedForwardCm,
-    predictedRightCm,
-    predictedUpCm,
-    primaryTargetRadialVelocity
-  );
+  desiredElevationAngle = constrainFloatValue((float)TARGETING_ELEVATION, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
 
   if (fabs(desiredAzimuthAngle - targetAzimuthCommand) > AZIMUTH_COMMAND_DEADBAND_DEG) {
     targetAzimuthCommand = dampFloatValue(targetAzimuthCommand, desiredAzimuthAngle, AIM_DAMPING);
