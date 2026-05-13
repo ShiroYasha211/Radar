@@ -41,24 +41,24 @@ const int halfStepSequence[8][4] = {
 };
 
 const long HALF_STEPS_PER_REV = 8192L;
-const unsigned int STEPPER_SCAN_INTERVAL_US = 1600;
+const unsigned int STEPPER_SCAN_INTERVAL_US = 600;
 const byte MAX_STEPPER_LAG_STEPS = 2;
 const byte MAX_STEPPER_CATCHUP_STEPS = 4;
 
-const int BLIND_ZONE_MAX_DISTANCE = 40;
+const int BLIND_ZONE_MAX_DISTANCE = 100;
 const int DANGER_MAX_DISTANCE = 200;
 const int MID_MAX_DISTANCE = 300;
 const int TARGET_DETECT_DISTANCE = 500;
 
-const int TARGET_BIN_SIZE_DEG = 10;
-const int TARGET_BIN_COUNT = 36;
+const int TARGET_BIN_SIZE_DEG = 5;
+const int TARGET_BIN_COUNT = 72;
 const int TARGET_REINIT_DISTANCE_CM = 60;
 const int TARGET_REINIT_ANGLE_DEG = 18;
 
 const byte TARGET_CONFIDENCE_INIT = 16;
 const byte TARGET_CONFIDENCE_MAX = 100;
-const byte TARGET_CONFIDENCE_MIN_TRACK = TARGET_CONFIDENCE_INIT;
-const byte TARGET_HITS_MIN_TRACK = 1;
+const byte TARGET_CONFIDENCE_MIN_TRACK = 22;
+const byte TARGET_HITS_MIN_TRACK = 2;
 const byte TARGET_CONFIDENCE_GAIN_STRONG = 12;
 const byte TARGET_CONFIDENCE_GAIN_WEAK = 7;
 const byte TARGET_CONFIDENCE_GAIN_POOR = 2;
@@ -69,15 +69,12 @@ const int TARGET_SCORE_STABILITY_MAX_BONUS = 120;
 const int TARGET_SCORE_DANGER_BONUS = 180;
 const int TARGET_SCORE_AIMABLE_BONUS = 90;
 
-const byte FILTER_DEN = 10;
-const byte ANGLE_FILTER_NUM = 4;
-const byte DIST_FILTER_NUM = 3;
-const byte VELOCITY_FILTER_NUM = 3;
-const int MAX_ANGULAR_VELOCITY_DPS = 240;
-const int MAX_RADIAL_VELOCITY_CMPS = 250;
+const byte FILTER_DEN = 6;
+const byte ANGLE_FILTER_NUM = 2;
+const byte DIST_FILTER_NUM = 2;
 
 const int MIN_AZIMUTH = 0;
-const int MAX_AZIMUTH = 170;
+const int MAX_AZIMUTH = 160;
 const int HOME_AZIMUTH = 60;
 const bool AZIMUTH_DIRECTION_INVERTED = true;
 const int RADAR_FORWARD_ANGLE = 0;
@@ -89,47 +86,42 @@ const float SENSOR_TO_LAUNCH_HEIGHT_DROP_CM = 9.0f;
 const float LAUNCH_REFERENCE_HEIGHT_CM = SENSOR_HEIGHT_CM - SENSOR_TO_LAUNCH_HEIGHT_DROP_CM;
 const float TURRET_OFFSET_FORWARD_CM = 8.0f;
 const float TURRET_OFFSET_RIGHT_CM = 14.0f;
+const int TURRET_OFFSET_RIGHT_DIRECTION = -1;
+const float TURRET_OFFSET_RIGHT_EFFECTIVE_CM = TURRET_OFFSET_RIGHT_CM * TURRET_OFFSET_RIGHT_DIRECTION;
 const float TARGET_REFERENCE_HEIGHT_CM = 25.0f;
 
 const int MIN_ELEVATION = 20;
 const int MAX_ELEVATION = 90;
 const int DEFAULT_ELEVATION = 45;
 const int TARGETING_ELEVATION = 55;
-const float ELEVATION_OFFSET_CM = 8.0f;
-const float ELEVATION_PLATFORM_BIAS_DEG = 0.0f;
-const float ELEVATION_CLOSE_LIFT_DEG = 12.0f;
-const float ELEVATION_DROP_GAIN_DEG_PER_M2 = 1.2f;
-const float ELEVATION_APPROACH_GAIN_DEG_PER_CMPS = 0.015f;
 const float DEG_PER_RAD = 57.2957795f;
-const float AIM_SMOOTHING_ALPHA = 0.25f;
-const float AIM_DAMPING = 0.22f;
-const unsigned long AIM_PREDICTION_MS = 200;
+const float AIM_SMOOTHING_ALPHA = 0.40f;
+const float AIM_DAMPING = 0.45f;
 
-const unsigned long SENSOR_MEASURE_INTERVAL_MS = 85;
+const unsigned long SENSOR_MEASURE_INTERVAL_MS = 65;
 const unsigned long TARGET_MEMORY_MS = 1200;
-const unsigned long TARGET_PREDICTION_LIMIT_MS = 350;
 const unsigned long AIM_HOME_RETURN_DELAY_MS = 4000;
 const unsigned long ELEVATION_HOME_RETURN_DELAY_MS = 2000;
-const unsigned long SERVO_UPDATE_INTERVAL_MS = 20;
+const unsigned long SERVO_UPDATE_INTERVAL_MS = 15;
 const unsigned long SERIAL_UPDATE_INTERVAL_MS = SENSOR_MEASURE_INTERVAL_MS;
 const unsigned long HOME_SWITCH_DEBOUNCE_MS = 40;
-const unsigned long AZIMUTH_TRACK_LEAD_MS = 0;
-const unsigned long ELEVATION_TRACK_LEAD_MS = 260;
 const unsigned long FIRE_LOCK_HOLD_MS = 20;
 const unsigned long FIRE_PULSE_MS = 600;
 const unsigned long FIRE_COOLDOWN_MS = 0;
 
-const int SERVO_AZIMUTH_STEP_DEG = 1;
-const int SERVO_ELEVATION_STEP_DEG = 1;
-const int SERVO_AZIMUTH_FAST_STEP_DEG = 4;
-const int SERVO_ELEVATION_FAST_STEP_DEG = 3;
-const float AZIMUTH_COMMAND_DEADBAND_DEG = 0.25f;
-const float ELEVATION_COMMAND_DEADBAND_DEG = 0.35f;
+const int SERVO_AZIMUTH_STEP_DEG = 2;
+const int SERVO_ELEVATION_STEP_DEG = 2;
+const int SERVO_AZIMUTH_FAST_STEP_DEG = 7;
+const int SERVO_ELEVATION_FAST_STEP_DEG = 5;
+const float MANUAL_AZIMUTH_STEP_DEG = 2.0f;
+const float MANUAL_ELEVATION_STEP_DEG = 2.0f;
+const float AZIMUTH_COMMAND_DEADBAND_DEG = 0.15f;
+const float ELEVATION_COMMAND_DEADBAND_DEG = 0.25f;
 const float SERVO_POSITION_DEADBAND_DEG = 0.35f;
-const float AZIMUTH_FIRE_CORRECTION_DEG = -1.1f;
-const float FIRE_AZIMUTH_TOLERANCE_DEG = 1.0f;
-const float FIRE_ELEVATION_TOLERANCE_DEG = 2.0f;
-const float AIM_COMMAND_LOCK_TOLERANCE_DEG = 0.8f;
+const float AZIMUTH_FIRE_CORRECTION_DEG = 5.5f;
+const float FIRE_AZIMUTH_TOLERANCE_DEG = 1.8f;
+const float FIRE_ELEVATION_TOLERANCE_DEG = 3.0f;
+const float AIM_COMMAND_LOCK_TOLERANCE_DEG = 1.2f;
 const int SERVO_MIN_WRITE_ANGLE = 0;
 const int SERVO_MAX_WRITE_ANGLE = 180;
 const int AZIMUTH_SERVO_MIN_US = 544;
@@ -168,8 +160,6 @@ int primaryTargetAngle = RADAR_FORWARD_ANGLE;
 int primaryTargetDistance = -1;
 int primaryTargetConfidence = 0;
 int primaryTargetScore = 0;
-int primaryTargetAngularVelocity = 0;
-int primaryTargetRadialVelocity = 0;
 byte primaryTargetHits = 0;
 bool primaryTargetTrackable = false;
 int activeVisibleTargets = 0;
@@ -187,10 +177,6 @@ float targetElevationCommand = DEFAULT_ELEVATION;
 float filteredAimForwardCm = 0.0f;
 float filteredAimRightCm = 0.0f;
 float filteredAimUpCm = 0.0f;
-float previousAimForwardCm = 0.0f;
-float previousAimRightCm = 0.0f;
-float previousAimUpCm = 0.0f;
-unsigned long lastAimFilterMs = 0;
 bool aimFilterInitialized = false;
 
 unsigned long lastStepperStepUs = 0;
@@ -203,6 +189,7 @@ unsigned long lastTrackableAimMs = 0;
 unsigned long fireLockStartMs = 0;
 unsigned long firePulseEndMs = 0;
 unsigned long lastFireMs = 0;
+unsigned int engagedTargetCount = 0;
 bool serialPacketPending = false;
 
 bool stepperHolding = false;
@@ -212,6 +199,7 @@ bool lastHomeSwitchActive = false;
 bool homeCaptureArmed = true;
 bool homeSensorDetected = false;
 bool homeSensorInitialized = false;
+bool autoFireEnabled = ENABLE_AUTO_FIRE != 0;
 bool firePulseActive = false;
 bool fireCompletedForCurrentTarget = false;
 int armedFireTargetBin = -1;
@@ -221,8 +209,6 @@ int homeSensorFilteredValue = 0;
 
 int targetBinDistance[TARGET_BIN_COUNT];
 int targetBinAngle[TARGET_BIN_COUNT];
-int targetBinAngularVelocity[TARGET_BIN_COUNT];
-int targetBinRadialVelocity[TARGET_BIN_COUNT];
 byte targetBinConfidence[TARGET_BIN_COUNT];
 byte targetBinHits[TARGET_BIN_COUNT];
 unsigned long targetBinTime[TARGET_BIN_COUNT];
@@ -314,9 +300,51 @@ void writeLaunchElevationServo(float angle) {
   launchElevation.writeMicroseconds(servoAngleToPulseUs(angle, ELEVATION_SERVO_MIN_US, ELEVATION_SERVO_MAX_US));
 }
 
+void syncManualAimToCurrentPosition() {
+  desiredAzimuthAngle = launchAzimuthPosition;
+  desiredElevationAngle = launchElevationPosition;
+  targetAzimuthCommand = launchAzimuthPosition;
+  targetElevationCommand = launchElevationPosition;
+  targetAzimuthAngle = launchAzimuthAngle;
+  targetElevationAngle = launchElevationAngle;
+}
+
+void setAutoControlEnabled(bool enabled) {
+  autoFireEnabled = enabled;
+  firePulseActive = false;
+  fireCompletedForCurrentTarget = false;
+  fireLockStartMs = 0;
+  armedFireTargetBin = -1;
+  stopFire();
+
+  if (enabled) {
+    pauseAimStabilizer();
+  } else {
+    lastTrackableAimMs = 0;
+    pauseAimStabilizer();
+    syncManualAimToCurrentPosition();
+  }
+}
+
+void nudgeManualAim(float azimuthDelta, float elevationDelta) {
+  if (autoFireEnabled) {
+    Serial.println(F("# MANUAL AIM IGNORED: CONTROL MODE IS AUTO"));
+    return;
+  }
+
+  float newAzimuth = constrainFloatValue(targetAzimuthCommand + azimuthDelta, (float)MIN_AZIMUTH, (float)MAX_AZIMUTH);
+  float newElevation = constrainFloatValue(targetElevationCommand + elevationDelta, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
+
+  desiredAzimuthAngle = newAzimuth;
+  desiredElevationAngle = newElevation;
+  targetAzimuthCommand = newAzimuth;
+  targetElevationCommand = newElevation;
+  targetAzimuthAngle = constrain(roundFloatToInt(newAzimuth), MIN_AZIMUTH, MAX_AZIMUTH);
+  targetElevationAngle = constrain(roundFloatToInt(newElevation), MIN_ELEVATION, MAX_ELEVATION);
+}
+
 void resetAimStabilizer() {
   aimFilterInitialized = false;
-  lastAimFilterMs = 0;
   desiredAzimuthAngle = HOME_AZIMUTH;
   desiredElevationAngle = DEFAULT_ELEVATION;
   targetAzimuthCommand = HOME_AZIMUTH;
@@ -325,7 +353,6 @@ void resetAimStabilizer() {
 
 void pauseAimStabilizer() {
   aimFilterInitialized = false;
-  lastAimFilterMs = 0;
 }
 
 bool isVisibleDistance(int value) {
@@ -404,7 +431,7 @@ void radarAngleDistanceToLauncherVector(int radarAngle, int sensorDistance, floa
   float targetRightCm = sin(angleRad) * horizontalProjectionCm;
 
   *forwardCm = targetForwardCm - TURRET_OFFSET_FORWARD_CM;
-  *rightCm = targetRightCm - TURRET_OFFSET_RIGHT_CM;
+  *rightCm = targetRightCm - TURRET_OFFSET_RIGHT_EFFECTIVE_CM;
   *upCm = TARGET_REFERENCE_HEIGHT_CM - LAUNCH_REFERENCE_HEIGHT_CM;
 }
 
@@ -439,12 +466,6 @@ float launcherVectorToRadarAngleFloat(float forwardCm, float rightCm) {
 
 int launcherVectorToRadarAngle(float forwardCm, float rightCm) {
   return wrapAngle360(roundFloatToInt(launcherVectorToRadarAngleFloat(forwardCm, rightCm)));
-}
-
-int clampVelocity(int value, int maxAbsValue) {
-  if (value > maxAbsValue) return maxAbsValue;
-  if (value < -maxAbsValue) return -maxAbsValue;
-  return value;
 }
 
 int dynamicServoStep(int errorMagnitude, int slowStep, int fastStep) {
@@ -526,42 +547,18 @@ const char* stateName(SystemState state) {
   }
 }
 
-int predictionAgeMs(unsigned long nowMs, byte index) {
-  unsigned long ageMs = nowMs - targetBinTime[index];
-  if (ageMs > TARGET_PREDICTION_LIMIT_MS) ageMs = TARGET_PREDICTION_LIMIT_MS;
-  return (int)ageMs;
-}
-
 int predictedAngleForBin(byte index, unsigned long nowMs) {
-  int ageMs = predictionAgeMs(nowMs, index);
-  long predicted = (long)targetBinAngle[index] + ((long)targetBinAngularVelocity[index] * ageMs) / 1000L;
-  return wrapAngle360((int)predicted);
+  return targetBinAngle[index];
 }
 
 int predictedDistanceForBin(byte index, unsigned long nowMs) {
-  int ageMs = predictionAgeMs(nowMs, index);
-  long predicted = (long)targetBinDistance[index] + ((long)targetBinRadialVelocity[index] * ageMs) / 1000L;
-  if (predicted < 1) predicted = 1;
-  if (predicted > TARGET_DETECT_DISTANCE) predicted = TARGET_DETECT_DISTANCE;
-  return (int)predicted;
-}
-
-int predictFutureAngle(int angle, int angularVelocity, unsigned long leadMs) {
-  long predicted = (long)angle + ((long)angularVelocity * (long)leadMs) / 1000L;
-  return wrapAngle360((int)predicted);
-}
-
-int predictFutureDistance(int distance, int radialVelocity, unsigned long leadMs) {
-  long predicted = (long)distance + ((long)radialVelocity * (long)leadMs) / 1000L;
-  if (predicted < 1) predicted = 1;
-  if (predicted > TARGET_DETECT_DISTANCE) predicted = TARGET_DETECT_DISTANCE;
-  return (int)predicted;
+  return targetBinDistance[index];
 }
 
 int targetStabilityBonus(byte index) {
-  int angularPenalty = abs(targetBinAngularVelocity[index]) / 6;
-  int radialPenalty = abs(targetBinRadialVelocity[index]) / 4;
-  int bonus = TARGET_SCORE_STABILITY_MAX_BONUS - angularPenalty - radialPenalty;
+  int hitBonus = (int)targetBinHits[index] * 8;
+  if (hitBonus > TARGET_SCORE_STABILITY_MAX_BONUS) hitBonus = TARGET_SCORE_STABILITY_MAX_BONUS;
+  int bonus = hitBonus;
   if (bonus < 0) bonus = 0;
   return bonus;
 }
@@ -590,8 +587,6 @@ void clearTargetMap() {
   for (int i = 0; i < TARGET_BIN_COUNT; i++) {
     targetBinDistance[i] = -1;
     targetBinAngle[i] = i * TARGET_BIN_SIZE_DEG;
-    targetBinAngularVelocity[i] = 0;
-    targetBinRadialVelocity[i] = 0;
     targetBinConfidence[i] = 0;
     targetBinHits[i] = 0;
     targetBinTime[i] = 0;
@@ -604,8 +599,6 @@ void resetTargetSelection() {
   primaryTargetDistance = -1;
   primaryTargetConfidence = 0;
   primaryTargetScore = 0;
-  primaryTargetAngularVelocity = 0;
-  primaryTargetRadialVelocity = 0;
   primaryTargetHits = 0;
   primaryTargetTrackable = false;
   activeVisibleTargets = 0;
@@ -620,17 +613,24 @@ void resetTrackingState() {
   realDistance = -1;
 }
 
+void resetEngagedTargetCount() {
+  if (engagedTargetCount == 0) return;
+  engagedTargetCount = 0;
+  serialPacketPending = true;
+}
+
 void setRadarReferenceAngle(int radarAngle) {
   radarAngle = wrapAngle360(radarAngle);
   currentHalfStepPos = angleToHalfStep(radarAngle);
   currentStepperAngle = radarAngle;
   lastMeasurementAngle = radarAngle;
   radarAngleKnown = true;
+  resetEngagedTargetCount();
   serialPacketPending = true;
 }
 
 void printSerialHelp() {
-  Serial.println(F("# COMMANDS: zero | status | stepper on | stepper off | help"));
+  Serial.println(F("# COMMANDS: zero | status | stepper on | stepper off | auto on | auto off | left | right | up | down | move az el | fire | cease | help"));
 }
 
 void printResetCause() {
@@ -664,7 +664,7 @@ void printRadarStatus() {
   Serial.print(F(" | OFFSET(cm) F="));
   Serial.print(TURRET_OFFSET_FORWARD_CM, 1);
   Serial.print(F(" R="));
-  Serial.print(TURRET_OFFSET_RIGHT_CM, 1);
+  Serial.print(TURRET_OFFSET_RIGHT_EFFECTIVE_CM, 1);
   Serial.print(F(" SENSOR_H="));
   Serial.print(SENSOR_HEIGHT_CM, 1);
   Serial.print(F(" LAUNCH_DROP="));
@@ -684,6 +684,9 @@ void printRadarStatus() {
 #endif
   Serial.print(F(" | TARGETS="));
   Serial.print(activeVisibleTargets);
+  Serial.print(F(" | CONTROL="));
+  if (autoFireEnabled) Serial.print(F("AUTO"));
+  else Serial.print(F("MANUAL"));
   Serial.print(F(" | FIRE="));
   if (firePulseActive) Serial.print(F("PULSE"));
   else if (fireCompletedForCurrentTarget) Serial.print(F("DONE"));
@@ -697,11 +700,8 @@ void printRadarStatus() {
     Serial.print(primaryTargetConfidence);
     Serial.print(F(" | SCORE="));
     Serial.print(primaryTargetScore);
-    Serial.print(F(" | VEL="));
-    Serial.print(primaryTargetAngularVelocity);
-    Serial.print(F("dps/"));
-    Serial.print(primaryTargetRadialVelocity);
-    Serial.print(F("cmps"));
+    Serial.print(F(" | HITS="));
+    Serial.print(primaryTargetHits);
   } else {
     Serial.print(F("---"));
   }
@@ -761,6 +761,71 @@ void handleSerialCommand(char* rawCommand) {
     stepperEnabled = false;
     stepperOff();
     Serial.println(F("# STEPPER DISABLED"));
+    return;
+  }
+
+  if (strcmp(command, "auto on") == 0) {
+    setAutoControlEnabled(true);
+    Serial.println(F("# CONTROL MODE: AUTO"));
+    return;
+  }
+
+  if (strcmp(command, "auto off") == 0) {
+    setAutoControlEnabled(false);
+    Serial.println(F("# CONTROL MODE: MANUAL"));
+    return;
+  }
+
+  int moveAzimuth = 0;
+  int moveElevation = 0;
+  if (sscanf(command, "move %d %d", &moveAzimuth, &moveElevation) == 2) {
+    if (moveAzimuth > 1) moveAzimuth = 1;
+    if (moveAzimuth < -1) moveAzimuth = -1;
+    if (moveElevation > 1) moveElevation = 1;
+    if (moveElevation < -1) moveElevation = -1;
+    nudgeManualAim(moveAzimuth * MANUAL_AZIMUTH_STEP_DEG, moveElevation * MANUAL_ELEVATION_STEP_DEG);
+    return;
+  }
+
+  if (strcmp(command, "left") == 0) {
+    nudgeManualAim(MANUAL_AZIMUTH_STEP_DEG, 0.0f);
+    return;
+  }
+
+  if (strcmp(command, "right") == 0) {
+    nudgeManualAim(-MANUAL_AZIMUTH_STEP_DEG, 0.0f);
+    return;
+  }
+
+  if (strcmp(command, "up") == 0) {
+    nudgeManualAim(0.0f, MANUAL_ELEVATION_STEP_DEG);
+    return;
+  }
+
+  if (strcmp(command, "down") == 0) {
+    nudgeManualAim(0.0f, -MANUAL_ELEVATION_STEP_DEG);
+    return;
+  }
+
+  if (strcmp(command, "fire") == 0) {
+    firePulseActive = true;
+    fireCompletedForCurrentTarget = true;
+    lastFireMs = millis();
+    firePulseEndMs = lastFireMs + FIRE_PULSE_MS;
+    engagedTargetCount++;
+    serialPacketPending = true;
+    startFirePulse();
+    Serial.println(F("# MANUAL FIRE: PULSE STARTED"));
+    return;
+  }
+
+  if (strcmp(command, "cease") == 0 || strcmp(command, "stop fire") == 0) {
+    firePulseActive = false;
+    fireCompletedForCurrentTarget = false;
+    fireLockStartMs = 0;
+    armedFireTargetBin = -1;
+    stopFire();
+    Serial.println(F("# FIRE: CEASE"));
     return;
   }
 
@@ -882,6 +947,23 @@ void serviceFireControl() {
 #if ENABLE_AUTO_FIRE
   unsigned long nowMs = millis();
 
+  if (firePulseActive) {
+    if ((long)(nowMs - firePulseEndMs) < 0) {
+      startFirePulse();
+      return;
+    }
+
+    firePulseActive = false;
+    stopFire();
+    return;
+  }
+
+  if (!autoFireEnabled) {
+    fireLockStartMs = 0;
+    stopFire();
+    return;
+  }
+
   if (!primaryTargetTrackable || primaryTargetBin < 0) {
     firePulseActive = false;
     fireCompletedForCurrentTarget = false;
@@ -897,17 +979,6 @@ void serviceFireControl() {
     firePulseActive = false;
     fireLockStartMs = 0;
     stopFire();
-  }
-
-  if (firePulseActive) {
-    if ((long)(nowMs - firePulseEndMs) < 0) {
-      startFirePulse();
-      return;
-    }
-
-    firePulseActive = false;
-    stopFire();
-    return;
   }
 
   if (!isAimLockedForFire()) {
@@ -943,6 +1014,8 @@ void serviceFireControl() {
   fireCompletedForCurrentTarget = true;
   lastFireMs = nowMs;
   firePulseEndMs = nowMs + FIRE_PULSE_MS;
+  engagedTargetCount++;
+  serialPacketPending = true;
   startFirePulse();
 #else
   stopFire();
@@ -958,6 +1031,8 @@ void stepperOff() {
 }
 
 void applyHalfStep(int direction) {
+  int previousStepperAngle = currentStepperAngle;
+
   stepIndex += direction;
   if (stepIndex >= 8) stepIndex = 0;
   if (stepIndex < 0) stepIndex = 7;
@@ -971,6 +1046,9 @@ void applyHalfStep(int direction) {
   while (currentHalfStepPos < 0) currentHalfStepPos += HALF_STEPS_PER_REV;
 
   currentStepperAngle = halfStepToAngle(currentHalfStepPos);
+  if (direction > 0 && previousStepperAngle < 90 && currentStepperAngle >= 90) {
+    resetEngagedTargetCount();
+  }
   stepperHolding = true;
 }
 
@@ -1022,8 +1100,6 @@ long readEchoDuration() {
 
 void clearTargetBin(byte index) {
   targetBinDistance[index] = -1;
-  targetBinAngularVelocity[index] = 0;
-  targetBinRadialVelocity[index] = 0;
   targetBinConfidence[index] = 0;
   targetBinHits[index] = 0;
   targetBinTime[index] = 0;
@@ -1040,8 +1116,6 @@ void updateTargetMap(int angle, int distance) {
   if (targetBinDistance[binIndex] < 0 || nowMs - targetBinTime[binIndex] > TARGET_MEMORY_MS) {
     targetBinDistance[binIndex] = distance;
     targetBinAngle[binIndex] = wrappedAngle;
-    targetBinAngularVelocity[binIndex] = 0;
-    targetBinRadialVelocity[binIndex] = 0;
     targetBinConfidence[binIndex] = TARGET_CONFIDENCE_INIT;
     targetBinHits[binIndex] = 1;
     targetBinTime[binIndex] = nowMs;
@@ -1056,26 +1130,14 @@ void updateTargetMap(int angle, int distance) {
   if (angleError > TARGET_REINIT_ANGLE_DEG || distanceError > TARGET_REINIT_DISTANCE_CM) {
     targetBinDistance[binIndex] = distance;
     targetBinAngle[binIndex] = wrappedAngle;
-    targetBinAngularVelocity[binIndex] = 0;
-    targetBinRadialVelocity[binIndex] = 0;
     targetBinConfidence[binIndex] = TARGET_CONFIDENCE_INIT;
     targetBinHits[binIndex] = 1;
     targetBinTime[binIndex] = nowMs;
     return;
   }
 
-  unsigned long dtMs = nowMs - targetBinTime[binIndex];
-  if (dtMs == 0) dtMs = 1;
-
-  int observedAngularVelocity = (angleDiffDegrees(prevAngle, wrappedAngle) * 1000L) / (long)dtMs;
-  int observedRadialVelocity = ((distance - prevDistance) * 1000L) / (long)dtMs;
-  observedAngularVelocity = clampVelocity(observedAngularVelocity, MAX_ANGULAR_VELOCITY_DPS);
-  observedRadialVelocity = clampVelocity(observedRadialVelocity, MAX_RADIAL_VELOCITY_CMPS);
-
   targetBinAngle[binIndex] = filterAngleValue(prevAngle, wrappedAngle, ANGLE_FILTER_NUM, FILTER_DEN);
   targetBinDistance[binIndex] = filterLinearValue(prevDistance, distance, DIST_FILTER_NUM, FILTER_DEN);
-  targetBinAngularVelocity[binIndex] = filterLinearValue(targetBinAngularVelocity[binIndex], observedAngularVelocity, VELOCITY_FILTER_NUM, FILTER_DEN);
-  targetBinRadialVelocity[binIndex] = filterLinearValue(targetBinRadialVelocity[binIndex], observedRadialVelocity, VELOCITY_FILTER_NUM, FILTER_DEN);
 
   int newConfidence = targetBinConfidence[binIndex];
   if (angleError <= 6 && distanceError <= 12) newConfidence += TARGET_CONFIDENCE_GAIN_STRONG;
@@ -1138,8 +1200,6 @@ void selectPrimaryTarget() {
     primaryTargetDistance = predictedDistanceForBin(bestIndex, nowMs);
     primaryTargetConfidence = bestConfidence;
     primaryTargetScore = bestScore;
-    primaryTargetAngularVelocity = targetBinAngularVelocity[bestIndex];
-    primaryTargetRadialVelocity = targetBinRadialVelocity[bestIndex];
     primaryTargetHits = targetBinHits[bestIndex];
     currentState = stateFromDistance(primaryTargetDistance);
     primaryTargetTrackable =
@@ -1203,58 +1263,18 @@ void updateDistanceReading() {
   serialPacketPending = true;
 }
 
-int calculateSmartElevation(int distance, int radialVelocity) {
-  if (distance <= BLIND_ZONE_MAX_DISTANCE || distance > DANGER_MAX_DISTANCE) {
-    return DEFAULT_ELEVATION;
-  }
-
-  // This hardware scans horizontally only, so elevation is estimated from predicted range and motion.
-  float clampedDistance = (float)constrain(distance, BLIND_ZONE_MAX_DISTANCE + 1, DANGER_MAX_DISTANCE);
-  float closeness = (DANGER_MAX_DISTANCE - clampedDistance) / (float)(DANGER_MAX_DISTANCE - BLIND_ZONE_MAX_DISTANCE);
-  if (closeness < 0.0f) closeness = 0.0f;
-  if (closeness > 1.0f) closeness = 1.0f;
-
-  float closeLift = ELEVATION_CLOSE_LIFT_DEG * closeness * closeness;
-  float geometryLift = atan2(TARGET_REFERENCE_HEIGHT_CM - LAUNCH_REFERENCE_HEIGHT_CM, clampedDistance + ELEVATION_OFFSET_CM) * DEG_PER_RAD;
-  float distanceMeters = clampedDistance / 100.0f;
-  float dropLift = distanceMeters * distanceMeters * ELEVATION_DROP_GAIN_DEG_PER_M2;
-  float approachLift = 0.0f;
-
-  if (radialVelocity < 0) {
-    approachLift = (-radialVelocity) * ELEVATION_APPROACH_GAIN_DEG_PER_CMPS;
-    if (approachLift > 3.5f) approachLift = 3.5f;
-  }
-
-  float rawAngle = DEFAULT_ELEVATION + ELEVATION_PLATFORM_BIAS_DEG + closeLift + geometryLift + dropLift + approachLift;
-  return constrain((int)(rawAngle + 0.5f), MIN_ELEVATION, MAX_ELEVATION);
-}
-
-float calculateSmartElevationFromLauncherVector(float forwardCm, float rightCm, float upCm, int radialVelocity) {
-  float horizontalDistanceCm = sqrt(forwardCm * forwardCm + rightCm * rightCm);
-  if (horizontalDistanceCm < 1.0f) horizontalDistanceCm = 1.0f;
-
-  float clampedDistance = constrain(horizontalDistanceCm, (float)(BLIND_ZONE_MAX_DISTANCE + 1), (float)DANGER_MAX_DISTANCE);
-  float closeness = (DANGER_MAX_DISTANCE - clampedDistance) / (float)(DANGER_MAX_DISTANCE - BLIND_ZONE_MAX_DISTANCE);
-  if (closeness < 0.0f) closeness = 0.0f;
-  if (closeness > 1.0f) closeness = 1.0f;
-
-  float pitchOffsetDeg = atan2(upCm, horizontalDistanceCm + ELEVATION_OFFSET_CM) * DEG_PER_RAD;
-  float closeLift = ELEVATION_CLOSE_LIFT_DEG * closeness * closeness;
-  float distanceMeters = horizontalDistanceCm / 100.0f;
-  float dropLift = distanceMeters * distanceMeters * ELEVATION_DROP_GAIN_DEG_PER_M2;
-  float approachLift = 0.0f;
-
-  if (radialVelocity < 0) {
-    approachLift = (-radialVelocity) * ELEVATION_APPROACH_GAIN_DEG_PER_CMPS;
-    if (approachLift > 3.5f) approachLift = 3.5f;
-  }
-
-  float rawAngle = DEFAULT_ELEVATION + ELEVATION_PLATFORM_BIAS_DEG + pitchOffsetDeg + closeLift + dropLift + approachLift;
-  return constrainFloatValue(rawAngle, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
-}
-
 void updateAimTargets() {
   unsigned long nowMs = millis();
+
+  if (!autoFireEnabled) {
+    lastTrackableAimMs = 0;
+    pauseAimStabilizer();
+    desiredAzimuthAngle = targetAzimuthCommand;
+    desiredElevationAngle = targetElevationCommand;
+    targetAzimuthAngle = constrain(roundFloatToInt(targetAzimuthCommand), MIN_AZIMUTH, MAX_AZIMUTH);
+    targetElevationAngle = constrain(roundFloatToInt(targetElevationCommand), MIN_ELEVATION, MAX_ELEVATION);
+    return;
+  }
 
   if (!radarAngleKnown) {
     lastTrackableAimMs = 0;
@@ -1267,22 +1287,21 @@ void updateAimTargets() {
   }
 
   if (!primaryTargetTrackable) {
-    unsigned long timeSinceLastTargetMs = lastTrackableAimMs == 0 ? AIM_HOME_RETURN_DELAY_MS : nowMs - lastTrackableAimMs;
-    if (lastTrackableAimMs != 0 && timeSinceLastTargetMs < AIM_HOME_RETURN_DELAY_MS) {
-      float holdElevation = timeSinceLastTargetMs < ELEVATION_HOME_RETURN_DELAY_MS ? (float)TARGETING_ELEVATION : (float)DEFAULT_ELEVATION;
-      desiredElevationAngle = constrainFloatValue(holdElevation, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
-      targetElevationCommand = desiredElevationAngle;
-      targetElevationAngle = constrain(roundFloatToInt(targetElevationCommand), MIN_ELEVATION, MAX_ELEVATION);
-      pauseAimStabilizer();
-      return;
+    pauseAimStabilizer();
+    lastTrackableAimMs = 0;
+
+    if (isAimableRadarAngle(currentStepperAngle)) {
+      desiredAzimuthAngle = radarAngleToAzimuthFloat((float)currentStepperAngle);
+      desiredElevationAngle = TARGETING_ELEVATION;
+    } else {
+      desiredAzimuthAngle = HOME_AZIMUTH;
+      desiredElevationAngle = DEFAULT_ELEVATION;
     }
 
-    lastTrackableAimMs = 0;
-    desiredAzimuthAngle = HOME_AZIMUTH;
-    desiredElevationAngle = DEFAULT_ELEVATION;
-    targetAzimuthAngle = HOME_AZIMUTH;
-    targetElevationAngle = DEFAULT_ELEVATION;
-    resetAimStabilizer();
+    targetAzimuthCommand = constrainFloatValue(desiredAzimuthAngle, (float)MIN_AZIMUTH, (float)MAX_AZIMUTH);
+    targetElevationCommand = constrainFloatValue(desiredElevationAngle, (float)MIN_ELEVATION, (float)MAX_ELEVATION);
+    targetAzimuthAngle = constrain(roundFloatToInt(targetAzimuthCommand), MIN_AZIMUTH, MAX_AZIMUTH);
+    targetElevationAngle = constrain(roundFloatToInt(targetElevationCommand), MIN_ELEVATION, MAX_ELEVATION);
     return;
   }
 
@@ -1293,40 +1312,20 @@ void updateAimTargets() {
   float rawUpCm;
   radarAngleDistanceToLauncherVector(primaryTargetAngle, primaryTargetDistance, &rawForwardCm, &rawRightCm, &rawUpCm);
 
-  float dtSec = SENSOR_MEASURE_INTERVAL_MS / 1000.0f;
   if (!aimFilterInitialized) {
     filteredAimForwardCm = rawForwardCm;
     filteredAimRightCm = rawRightCm;
     filteredAimUpCm = rawUpCm;
-    previousAimForwardCm = filteredAimForwardCm;
-    previousAimRightCm = filteredAimRightCm;
-    previousAimUpCm = filteredAimUpCm;
     targetAzimuthCommand = launchAzimuthPosition;
     targetElevationCommand = launchElevationPosition;
     aimFilterInitialized = true;
   } else {
-    if (lastAimFilterMs != 0) {
-      dtSec = (nowMs - lastAimFilterMs) / 1000.0f;
-      if (dtSec < 0.02f) dtSec = 0.02f;
-      if (dtSec > 0.50f) dtSec = 0.50f;
-    }
-
-    previousAimForwardCm = filteredAimForwardCm;
-    previousAimRightCm = filteredAimRightCm;
-    previousAimUpCm = filteredAimUpCm;
     filteredAimForwardCm = smoothFloatValue(filteredAimForwardCm, rawForwardCm, AIM_SMOOTHING_ALPHA);
     filteredAimRightCm = smoothFloatValue(filteredAimRightCm, rawRightCm, AIM_SMOOTHING_ALPHA);
     filteredAimUpCm = smoothFloatValue(filteredAimUpCm, rawUpCm, AIM_SMOOTHING_ALPHA);
   }
-  lastAimFilterMs = nowMs;
 
-  float vx = (filteredAimForwardCm - previousAimForwardCm) / dtSec;
-  float vy = (filteredAimRightCm - previousAimRightCm) / dtSec;
-  float predictSec = AIM_PREDICTION_MS / 1000.0f;
-  float predictedForwardCm = filteredAimForwardCm + vx * predictSec;
-  float predictedRightCm = filteredAimRightCm + vy * predictSec;
-
-  float desiredRadarAngle = launcherVectorToRadarAngleFloat(predictedForwardCm, predictedRightCm);
+  float desiredRadarAngle = launcherVectorToRadarAngleFloat(filteredAimForwardCm, filteredAimRightCm);
   desiredAzimuthAngle = constrainFloatValue(
     radarAngleToAzimuthFloat(desiredRadarAngle) + AZIMUTH_FIRE_CORRECTION_DEG,
     (float)MIN_AZIMUTH,
@@ -1435,7 +1434,7 @@ void sendSerialPacket() {
   lastSerialMs = nowMs;
   serialPacketPending = false;
 
-  Serial.print(currentStepperAngle);
+  Serial.print(lastMeasurementAngle);
   Serial.print(',');
   Serial.print(realDistance);
   Serial.print(',');
@@ -1443,7 +1442,9 @@ void sendSerialPacket() {
   Serial.print(',');
   Serial.print(launchAzimuthAngle);
   Serial.print(',');
-  Serial.println(launchElevationAngle);
+  Serial.print(launchElevationAngle);
+  Serial.print(',');
+  Serial.println(engagedTargetCount);
 }
 
 void setup() {

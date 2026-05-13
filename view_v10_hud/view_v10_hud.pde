@@ -26,14 +26,18 @@ void draw() {
 }
 
 void serialEvent(Serial myPort) {
-  if (radar != null) {
-    radar.queueSerialEvent(myPort);
-  }
+  // Serial is read by pollSerialPort() in draw(); mixing both paths can stall Processing serial on Windows.
 }
 
 void keyPressed() {
   if (radar != null) {
     radar.handleKeyPress();
+  }
+}
+
+void keyReleased() {
+  if (radar != null) {
+    radar.handleKeyRelease();
   }
 }
 
@@ -80,35 +84,59 @@ class EnhancedRadarSystem {
   final int displayMaxRangeCm = 500;
   final int nearPingLifetimeMs = 1200;
   final int farPingLifetimeMs = 3200;
-  final int maxSerialLinesPerFrame = 8;
+  final int maxSerialLinesPerFrame = 32;
   final int maxQueuedSerialLines = 80;
+  final int maxQueuedSerialCommands = 16;
+  final int maxSerialPollCharsPerFrame = 2048;
+  final int serialCommandIntervalMs = 20;
+  final int manualMoveRepeatMs = 20;
+  final int serialSoftRecoverMs = 2500;
+  final int serialHardRecoverMs = 7000;
 
   ArrayList<RadarPing> pings = new ArrayList<RadarPing>();
   ArrayList<String> pendingSerialLines = new ArrayList<String>();
+  ArrayList<String> pendingSerialCommands = new ArrayList<String>();
+  String incomingSerialBuffer = "";
 
   int iAngle = 0;
   int iDistance = -1;
   int iState = 0;
   int iAzimuth = homeAzimuth;
   int iElevation = 45;
+  int engagedTargetCount = 0;
 
   float currentAngle = 0;
   float currentDistance = 0;
+  float animatedTurretAzimuth = homeAzimuth;
+  float animatedTurretElevation = 45;
   float lastPlottedAngle = -1000;
   float lastPlottedDistance = -1000;
   long lastPlottedTime = 0;
+  long manualFireFlashUntilMs = 0;
+  long lastSerialCommandMs = 0;
+  long lastManualMoveMs = 0;
+  long lastSerialRecoveryMs = 0;
+  long lastRawSerialLineMs = 0;
+  long lastRadarPacketMs = 0;
 
   String alarmStatusText = "آمن";
   String threatLevelText = "دورية بحث روتينية";
   String lastTargetClockText = "--:--:--";
   String lastTargetDateText = "--/--/----";
+  String lastRawSerialLine = "---";
+  String controlStatusText = "AUTO";
+  boolean autoControlEnabled = true;
+  boolean manualLeftHeld = false;
+  boolean manualRightHeld = false;
+  boolean manualUpHeld = false;
+  boolean manualDownHeld = false;
   boolean targetDetected = false;
   int totalDetectedTargets = 0;
 
   EnhancedRadarSystem(PApplet p) {
     this.p = p;
-    radarCenter = new PVector(p.width * 0.50f, p.height * 0.51f);
-    radarRadius = min(p.width * 0.245f, p.height * 0.345f);
+    radarCenter = new PVector(p.width * 0.50f, p.height * 0.485f);
+    radarRadius = min(p.width * 0.275f, p.height * 0.395f);
   }
 
   void initialize() {
@@ -123,7 +151,12 @@ class EnhancedRadarSystem {
   }
 
   void update() {
+    pollSerialPort();
     serviceSerialInput();
+    serviceOutgoingSerialCommands();
+    serviceSerialRecovery();
+    serviceManualMoveHold();
+    updateWeaponAnimation();
     drawHudBackdrop();
     cleanupOldPings();
     drawHeader();
@@ -132,6 +165,11 @@ class EnhancedRadarSystem {
     drawRightInfoPanel();
     drawStatusBar();
     handleVisualAlarm();
+  }
+
+  void updateWeaponAnimation() {
+    animatedTurretAzimuth += (iAzimuth - animatedTurretAzimuth) * 0.12f;
+    animatedTurretElevation += (iElevation - animatedTurretElevation) * 0.14f;
   }
 
   void printAvailablePorts() {
@@ -173,6 +211,13 @@ class EnhancedRadarSystem {
     synchronized (pendingSerialLines) {
       pendingSerialLines.clear();
     }
+    synchronized (pendingSerialCommands) {
+      pendingSerialCommands.clear();
+    }
+    incomingSerialBuffer = "";
+    lastRawSerialLineMs = 0;
+    lastRadarPacketMs = 0;
+    lastRawSerialLine = "---";
 
     if (myPort != null) {
       try {
@@ -198,9 +243,12 @@ class EnhancedRadarSystem {
       myPort = new Serial(p, portName, baudRate);
       p.delay(1200);
       myPort.clear();
-      myPort.bufferUntil('\n');
       isConnected = true;
       lastSerialDataMs = 0;
+      lastSerialRecoveryMs = 0;
+      lastRawSerialLineMs = 0;
+      lastRadarPacketMs = 0;
+      lastRawSerialLine = "---";
       lastPortOpenMs = p.millis();
       connectionStatus = "تم فتح " + portName + " وجار انتظار البيانات";
       println("Connected to serial port: " + portName);
@@ -233,38 +281,212 @@ class EnhancedRadarSystem {
     }
   }
 
-  void queueSerialEvent(Serial port) {
-    if (port == null || port != myPort) return;
+  void enqueueSerialLine(String data) {
+    if (data == null) return;
+    data = data.trim();
+    if (data.length() == 0) return;
+
+    lastRawSerialLineMs = p.millis();
+    lastRawSerialLine = data;
+
+    synchronized (pendingSerialLines) {
+      pendingSerialLines.add(data);
+      while (pendingSerialLines.size() > maxQueuedSerialLines) {
+        pendingSerialLines.remove(0);
+      }
+    }
+  }
+
+  void pollSerialPort() {
+    if (myPort == null || !isConnected) return;
 
     try {
-      String data = port.readStringUntil('\n');
-      if (data == null) return;
-      data = data.trim();
-      if (data.length() == 0) return;
+      int charsRead = 0;
+      while (myPort.available() > 0 && charsRead < maxSerialPollCharsPerFrame) {
+        char c = (char)myPort.read();
+        charsRead++;
 
-      synchronized (pendingSerialLines) {
-        pendingSerialLines.add(data);
-        while (pendingSerialLines.size() > maxQueuedSerialLines) {
-          pendingSerialLines.remove(0);
+        if (c == '\r') continue;
+        if (c == '\n') {
+          enqueueSerialLine(incomingSerialBuffer);
+          incomingSerialBuffer = "";
+          continue;
+        }
+
+        if (incomingSerialBuffer.length() < 120) {
+          incomingSerialBuffer += c;
+        } else {
+          incomingSerialBuffer = "";
         }
       }
+    } catch (Exception e) {
+      isConnected = false;
+      connectionStatus = "ط§ظ†ظ‚ط·ط¹ ط§ظ„ط§طھطµط§ظ„: " + portName;
+      closeSerial();
+      println("Serial poll error: " + e.getMessage());
+    }
+  }
+
+  void serviceSerialRecovery() {
+    if (myPort == null || !isConnected) return;
+    if (lastRawSerialLineMs == 0) return;
+
+    long now = p.millis();
+    long ageMs = now - lastRawSerialLineMs;
+    if (ageMs < serialSoftRecoverMs) return;
+    if (now - lastSerialRecoveryMs < serialSoftRecoverMs) return;
+
+    lastSerialRecoveryMs = now;
+    incomingSerialBuffer = "";
+
+    if (ageMs < serialHardRecoverMs) {
+      try {
+        myPort.clear();
+        controlStatusText = "SERIAL CLEAR";
+      } catch (Exception e) {
+        isConnected = false;
+        connectionStatus = "ط§ظ†ظ‚ط·ط¹ ط§ظ„ط§طھطµط§ظ„: " + portName;
+        closeSerial();
+      }
+      return;
+    }
+
+    controlStatusText = "SERIAL REOPEN";
+    setupSerial();
+  }
+
+  void queueSerialEvent(Serial port) {
+    return;
+/*
     } catch (Exception e) {
       isConnected = false;
       connectionStatus = "انقطع الاتصال: " + portName;
       closeSerial();
       println("Serial event error: " + e.getMessage());
     }
+*/
+  }
+
+  boolean queueSerialCommand(String command) {
+    if (myPort == null || !isConnected) {
+      controlStatusText = "NO SERIAL";
+      return false;
+    }
+
+    synchronized (pendingSerialCommands) {
+      pendingSerialCommands.add(command);
+      while (pendingSerialCommands.size() > maxQueuedSerialCommands) {
+        pendingSerialCommands.remove(0);
+      }
+    }
+    controlStatusText = command.toUpperCase();
+    if (command.equals("fire")) {
+      manualFireFlashUntilMs = p.millis() + 650;
+    }
+    return true;
+  }
+
+  void serviceOutgoingSerialCommands() {
+    if (myPort == null || !isConnected) return;
+    if (p.millis() - lastSerialCommandMs < serialCommandIntervalMs) return;
+
+    String command = null;
+    synchronized (pendingSerialCommands) {
+      if (pendingSerialCommands.size() == 0) return;
+      command = pendingSerialCommands.remove(0);
+    }
+
+    try {
+      myPort.write(command + "\n");
+      lastSerialCommandMs = p.millis();
+      lastSerialDataMs = p.millis();
+    } catch (Exception e) {
+      isConnected = false;
+      connectionStatus = "انقطع الاتصال: " + portName;
+      controlStatusText = "SEND ERROR";
+      closeSerial();
+    }
   }
 
   void handleKeyPress() {
-    if (key == 'r' || key == 'R') {
+    if (key == PConstants.CODED) {
+      if (!autoControlEnabled) handleArrowKeyState(keyCode, true);
+      return;
+    }
+    if (key == 'r' || key == 'R' || key == 'ق') {
       setupSerial();
-    } else if (key == 'p' || key == 'P') {
+    } else if (key == 'p' || key == 'P' || key == 'ح') {
       printAvailablePorts();
     } else if (key >= '0' && key <= '9') {
       preferredPortHint = "COM" + key;
       setupSerial();
       println("Preferred port changed to: " + preferredPortHint);
+    } else if (key == 'a' || key == 'A' || key == 'ش') {
+      boolean nextAutoControlEnabled = !autoControlEnabled;
+      if (queueSerialCommand(nextAutoControlEnabled ? "auto on" : "auto off")) {
+        autoControlEnabled = nextAutoControlEnabled;
+        clearManualMoveKeys();
+      }
+    } else if (key == 'f' || key == 'F' || key == 'ب') {
+      queueSerialCommand("fire");
+    } else if (key == 's' || key == 'S' || key == 'س') {
+      queueSerialCommand("cease");
+    }
+  }
+
+  void handleKeyRelease() {
+    if (key == PConstants.CODED) {
+      handleArrowKeyState(keyCode, false);
+    }
+  }
+
+  void clearManualMoveKeys() {
+    manualLeftHeld = false;
+    manualRightHeld = false;
+    manualUpHeld = false;
+    manualDownHeld = false;
+  }
+
+  void handleArrowKeyState(int code, boolean pressed) {
+    if (code == PConstants.LEFT) {
+      boolean wasHeld = manualLeftHeld;
+      manualLeftHeld = pressed;
+      if (pressed && !wasHeld) sendManualMoveStep();
+    } else if (code == PConstants.RIGHT) {
+      boolean wasHeld = manualRightHeld;
+      manualRightHeld = pressed;
+      if (pressed && !wasHeld) sendManualMoveStep();
+    } else if (code == PConstants.UP) {
+      boolean wasHeld = manualUpHeld;
+      manualUpHeld = pressed;
+      if (pressed && !wasHeld) sendManualMoveStep();
+    } else if (code == PConstants.DOWN) {
+      boolean wasHeld = manualDownHeld;
+      manualDownHeld = pressed;
+      if (pressed && !wasHeld) sendManualMoveStep();
+    }
+  }
+
+  void serviceManualMoveHold() {
+    if (autoControlEnabled) return;
+    if (!manualLeftHeld && !manualRightHeld && !manualUpHeld && !manualDownHeld) return;
+    if (p.millis() - lastManualMoveMs < manualMoveRepeatMs) return;
+    sendManualMoveStep();
+  }
+
+  void sendManualMoveStep() {
+    if (autoControlEnabled) return;
+
+    int azimuthStep = 0;
+    int elevationStep = 0;
+    if (manualLeftHeld) azimuthStep += 1;
+    if (manualRightHeld) azimuthStep -= 1;
+    if (manualUpHeld) elevationStep += 1;
+    if (manualDownHeld) elevationStep -= 1;
+    if (azimuthStep == 0 && elevationStep == 0) return;
+
+    if (queueSerialCommand("move " + azimuthStep + " " + elevationStep)) {
+      lastManualMoveMs = p.millis();
     }
   }
 
@@ -281,6 +503,10 @@ class EnhancedRadarSystem {
       iState = p.parseInt(parts[2]);
       iAzimuth = p.parseInt(parts[3]);
       iElevation = p.parseInt(parts[4]);
+      if (parts.length >= 6) {
+        engagedTargetCount = max(0, p.parseInt(parts[5]));
+      }
+      lastRadarPacketMs = p.millis();
 
       float delta = angleDelta(currentAngle, iAngle);
       currentAngle = wrapAngle360((int)(currentAngle + delta * 0.45f));
@@ -391,6 +617,14 @@ class EnhancedRadarSystem {
     return p.color(65, 255, 105);
   }
 
+  color radarOrange() {
+    return p.color(230, 95, 12);
+  }
+
+  color radarOrangeStrong() {
+    return p.color(255, 115, 18);
+  }
+
   color alertColor() {
     if (iState == 3) return p.color(255, 70, 50);
     if (iState == 2) return p.color(255, 220, 70);
@@ -422,9 +656,60 @@ class EnhancedRadarSystem {
     return "آمن";
   }
 
+  String autoFireArabicLabel() {
+    if (autoControlEnabled) return "تلقائي";
+    return "يدوي";
+  }
+
   String connectionArabicLabel() {
     if (isConnected) return "نشط";
     return "غير متصل";
+  }
+
+  long radarPacketAgeMs() {
+    if (lastRadarPacketMs == 0) return -1;
+    return p.millis() - lastRadarPacketMs;
+  }
+
+  long rawSerialAgeMs() {
+    if (lastRawSerialLineMs == 0) return -1;
+    return p.millis() - lastRawSerialLineMs;
+  }
+
+  String formatAgeLabel(String prefix, long ageMs) {
+    if (ageMs < 0) return prefix + ": WAIT";
+    if (ageMs < 1000) return prefix + ": " + ageMs + " ms";
+    return prefix + ": " + p.nf(ageMs / 1000.0f, 0, 1) + " s";
+  }
+
+  String radarPacketLabel() {
+    return formatAgeLabel("DATA", radarPacketAgeMs());
+  }
+
+  String rawSerialLabel() {
+    return formatAgeLabel("RAW", rawSerialAgeMs());
+  }
+
+  color radarPacketColor() {
+    return ageColor(radarPacketAgeMs());
+  }
+
+  color rawSerialColor() {
+    return ageColor(rawSerialAgeMs());
+  }
+
+  color ageColor(long ageMs) {
+    if (ageMs < 0) return p.color(255, 210, 70);
+    if (ageMs <= 350) return hudGreen();
+    if (ageMs <= 1200) return p.color(255, 210, 70);
+    return p.color(255, 70, 55);
+  }
+
+  String shortRawSerialLine() {
+    if (lastRawSerialLine == null || lastRawSerialLine.length() == 0) return "LAST: ---";
+    String value = lastRawSerialLine;
+    if (value.length() > 28) value = value.substring(0, 28) + "...";
+    return "LAST: " + value;
   }
 
   void hudPanel(float x, float y, float w, float h, String title) {
@@ -471,21 +756,71 @@ class EnhancedRadarSystem {
 
   void drawTurretSilhouette(float x, float y) {
     p.pushStyle();
+
+    color stateColor = alertColor();
+    float yawOffset = p.map(animatedTurretAzimuth, minAzimuth, maxAzimuth, -48, 48);
+    float pitchOffset = p.map(animatedTurretElevation, 20, 90, 20, -28);
+    float phase = p.millis() * 0.012f;
+    boolean firingNow = p.millis() < manualFireFlashUntilMs;
+    boolean trackingNow = iState == 3;
+
+    p.noFill();
+    p.stroke(40, 255, 120, 55);
+    p.strokeWeight(1);
+    p.arc(x - 4, y + 64, 150, 42, p.radians(205), p.radians(335));
+    p.stroke(hudBlue(), 130);
+    p.line(x - 4 + yawOffset, y + 45, x - 4 + yawOffset, y + 84);
+
     p.noStroke();
-    p.fill(85, 95, 88);
-    p.rect(x - 64, y + 60, 128, 12, 4);
-    p.fill(55, 65, 62);
-    p.rect(x - 46, y + 40, 92, 22, 5);
-    p.fill(110, 120, 112);
-    p.ellipse(x - 20, y + 22, 58, 58);
-    p.fill(32, 38, 38);
-    p.ellipse(x - 20, y + 22, 31, 31);
-    p.stroke(255, 225, 80, 230);
-    p.strokeWeight(5);
-    p.line(x + 2, y + 7, x + 116, y - 45);
-    p.stroke(255, 230, 110, 90);
+    p.fill(38, 48, 46);
+    p.rect(x - 72, y + 82, 144, 12, 4);
+    p.fill(72, 84, 78);
+    p.rect(x - 54, y + 62, 108, 22, 6);
+    p.fill(32, 40, 38);
+    p.ellipse(x, y + 58, 82, 28);
+
+    p.pushMatrix();
+    p.translate(x + yawOffset, y + 36);
+
+    p.noStroke();
+    p.fill(82, 94, 88);
+    p.ellipse(0, 20, 66, 44);
+    p.fill(125, 136, 126);
+    p.ellipse(0, 12, 46, 38);
+    p.fill(28, 34, 34);
+    p.ellipse(0, 12, 22, 22);
+
+    float barrelEndX = 102;
+    float barrelEndY = pitchOffset;
+    p.stroke(205, 218, 196);
     p.strokeWeight(12);
-    p.line(x + 48, y - 14, x + 132, y - 52);
+    p.line(12, 9, barrelEndX, barrelEndY);
+    p.stroke(80, 92, 86);
+    p.strokeWeight(16);
+    p.line(15, 13, 56, 8 + pitchOffset * 0.35f);
+    p.stroke(225, 235, 215);
+    p.strokeWeight(7);
+    p.line(48, 8 + pitchOffset * 0.35f, barrelEndX, barrelEndY);
+
+    p.noStroke();
+    p.fill(stateColor);
+    p.ellipse(0, 12, 8 + sin(phase) * 2, 8 + sin(phase) * 2);
+
+    if (trackingNow || firingNow) {
+      int beamAlpha = firingNow ? 210 : 110;
+      p.stroke(p.red(stateColor), p.green(stateColor), p.blue(stateColor), beamAlpha);
+      p.strokeWeight(firingNow ? 5 : 3);
+      p.line(barrelEndX, barrelEndY, barrelEndX + 78, barrelEndY - 18);
+      p.stroke(p.red(stateColor), p.green(stateColor), p.blue(stateColor), firingNow ? 65 : 30);
+      p.strokeWeight(firingNow ? 14 : 9);
+      p.line(barrelEndX + 6, barrelEndY - 1, barrelEndX + 88, barrelEndY - 21);
+      p.noStroke();
+      p.fill(p.red(stateColor), p.green(stateColor), p.blue(stateColor), firingNow ? 210 : 120);
+      p.ellipse(barrelEndX + 82, barrelEndY - 19, firingNow ? 14 : 8, firingNow ? 14 : 8);
+    }
+
+    p.popMatrix();
+
     p.popStyle();
   }
 
@@ -493,11 +828,7 @@ class EnhancedRadarSystem {
     p.textAlign(PConstants.CENTER);
     p.textFont(extraLargeFont);
     p.fill(hudBlue());
-    p.text("نموذج مصغر يحاكي منظومة دفاع جوي ورادار إنذار مبكر", p.width / 2.0f, 45);
-
-    p.textFont(font);
-    p.fill(110, 190, 255);
-    p.text("360°", p.width / 2.0f, 78);
+    p.text("نموذج مصغر يحاكي منظومة دفاع جوي ورادار إنذار مبكر 360°", p.width / 2.0f, 45);
 
     float rightHeaderCenterX = p.width - 199;
     float headerMiddleX = rightHeaderCenterX + 10;
@@ -528,8 +859,10 @@ class EnhancedRadarSystem {
 
   void drawEnhancedRadarGrid() {
     p.noStroke();
+    int baseGlowAlpha = iState == 3 ? 8 : 5;
     for (int glow = 0; glow < 10; glow++) {
-      p.fill(20, 255, 90, 2);
+      color haloColor = radarOrange();
+      p.fill(p.red(haloColor), p.green(haloColor), p.blue(haloColor), baseGlowAlpha);
       float d = radarRadius * 2 + glow * 12;
       p.ellipse(0, 0, d, d);
     }
@@ -550,17 +883,21 @@ class EnhancedRadarSystem {
       p.textSize(11);
       p.textAlign(PConstants.CENTER);
       p.text(int(distance) + "cm", 0, rr - 4);
+      p.text(int(distance) + "cm", rr - 24, (i % 2 == 0) ? -8 : 10);
     }
 
-    for (int angle = 0; angle < 360; angle += 30) {
-      p.stroke(80, 255, 130, (angle % 90 == 0) ? 160 : 65);
-      p.strokeWeight((angle % 90 == 0) ? 2.2f : 1);
+    for (int angle = 0; angle < 360; angle += 10) {
+      boolean axisLine = angle % 90 == 0;
+      p.stroke(80, 255, 130, axisLine ? 160 : 65);
+      p.strokeWeight(axisLine ? 2.2f : 0.9f);
       float rad = p.radians(angle - 90);
       p.line(0, 0, p.cos(rad) * radarRadius, p.sin(rad) * radarRadius);
 
-      p.fill(205, 230, 220);
-      p.textSize(angle % 90 == 0 ? 16 : 13);
+      if (angle % 30 == 0) {
+        p.fill(205, 230, 220);
+        p.textSize(axisLine ? 16 : 13);
       p.text(angle + "°", p.cos(rad) * (radarRadius + 28), p.sin(rad) * (radarRadius + 28));
+      }
     }
 
     for (int angle = 0; angle < 360; angle += 2) {
@@ -684,34 +1021,48 @@ class EnhancedRadarSystem {
     float x = 38;
     float w = 322;
 
-    hudPanel(x, 118, w, 98, "حالة الاتصال");
+    hudPanel(x, 92, w, 118, "حالة الاتصال");
     p.textAlign(PConstants.LEFT);
     p.textFont(largeFont);
     p.fill(isConnected ? hudGreen() : p.color(255, 75, 65));
-    p.ellipse(x + 34, 176, 13, 13);
-    p.text((isConnected ? "متصل - " : "غير متصل - ") + portName, x + 58, 182);
+    p.ellipse(x + 34, 146, 13, 13);
+    p.text((isConnected ? "متصل - " : "غير متصل - ") + portName, x + 58, 152);
+    p.textFont(font);
+    p.fill(rawSerialColor());
+    p.text(rawSerialLabel(), x + 24, 174);
+    p.fill(radarPacketColor());
+    p.text(radarPacketLabel(), x + 162, 174);
+    p.fill(170, 210, 205);
+    p.text(shortRawSerialLine(), x + 24, 194);
 
-    hudPanel(x, 238, w, 220, "مستوى التهديد");
+    hudPanel(x, 224, w, 194, "مستوى التهديد");
     p.textAlign(PConstants.LEFT);
     p.textFont(largeFont);
     p.fill(alertColor());
-    p.text(modeLabel(), x + 24, 292);
+    p.text(modeLabel(), x + 24, 272);
     p.textFont(font);
     p.fill(alertColor());
-    p.text(threatLevelText, x + 24, 316, w - 48, 42);
-    drawMetric(x + 24, 362, "المسافة", distanceLabel(iDistance), p.color(255));
-    drawMetric(x + 24, 390, "الزاوية", iAngle + "°", p.color(255));
-    drawMetric(x + 24, 418, "آخر رصد", getLastTargetTime(), p.color(255));
-    drawMetric(x + 24, 446, "التاريخ", getLastTargetDate(), p.color(255));
+    p.text(threatLevelText, x + 24, 294, w - 48, 34);
+    drawMetric(x + 24, 338, "المسافة", distanceLabel(iDistance), p.color(255));
+    drawMetric(x + 24, 362, "الزاوية", iAngle + "°", p.color(255));
+    drawMetric(x + 24, 386, "آخر رصد", getLastTargetTime(), p.color(255));
+    drawMetric(x + 24, 410, "التاريخ", getLastTargetDate(), p.color(255));
 
-    hudPanel(x, 472, w, 270, "النظام المسلح");
-    drawTurretSilhouette(x + 148, 545);
-    drawMetric(x + 185, 622, "الاتجاه", iAzimuth + "°", hudGreen());
-    drawMetric(x + 185, 650, "الارتفاع", iElevation + "°", p.color(255, 215, 70));
+    hudPanel(x, 430, w, 226, "النظام المسلح");
+    drawTurretSilhouette(x + 148, 486);
+    p.textFont(font);
+    p.fill(hudBlue());
+    p.textAlign(PConstants.LEFT);
+    p.text("الاتجاه: " + iAzimuth + "°", x + 24, 622);
+    p.textAlign(PConstants.RIGHT);
+    p.text("الارتفاع: " + iElevation + "°", x + w - 24, 622);
     p.textAlign(PConstants.CENTER);
     p.textFont(largeFont);
     p.fill(alertColor());
-    p.text(alarmStatusText, x + w / 2.0f, 710);
+    p.text(alarmStatusText, x + w / 2.0f, 648);
+
+    hudPanel(x, 664, w, 152, "الوضع اليدوي");
+    drawManualControlPanel(x, 664, w);
   }
 
   void drawRightInfoPanel() {
@@ -721,7 +1072,7 @@ class EnhancedRadarSystem {
     hudPanel(x, 118, w, 132, "مؤشر الحالة");
     hudBadge(x + 28, 166, 78, 58, "SCAN", "مسح", iState >= 1 ? hudBlue() : p.color(65, 100, 115));
     hudBadge(x + 122, 166, 78, 58, "TRACK", "تتبع", iState == 3 ? p.color(255, 210, 70) : p.color(90, 95, 55));
-    hudBadge(x + 216, 166, 78, 58, "FIRE", "إطلاق", iState == 3 ? p.color(255, 70, 55) : p.color(90, 35, 35));
+    hudBadge(x + 216, 166, 78, 58, autoControlEnabled ? "AUTO" : "MANUAL", "تحكم", autoControlEnabled ? p.color(255, 210, 70) : p.color(255, 70, 55));
 
     hudPanel(x, 274, w, 234, "HUD عسكري");
     drawMiniHud(x + 22, 316, w - 44, 150);
@@ -730,6 +1081,56 @@ class EnhancedRadarSystem {
 
     hudPanel(x, 532, w, 210, "سجل التتبع");
     drawTrackHistory(x + 26, 582, w - 52, 118);
+
+  }
+
+  void drawManualControlPanel(float x, float y, float w) {
+    color modeColor = manualControlColor();
+    drawManualKeyHint(x + 24, y + 64, "A", manualModeLabel(), modeColor);
+    drawManualKeyHint(x + 92, y + 64, "F", "إطلاق", modeColor);
+    drawManualKeyHint(x + 160, y + 64, "S", "إيقاف", hudGreen());
+    drawManualKeyHint(x + 238, y + 46, "←→", "يمين/يسار", modeColor);
+    drawManualKeyHint(x + 238, y + 90, "↑↓", "فوق/تحت", modeColor);
+  }
+
+  color manualControlColor() {
+    if (autoControlEnabled) return p.color(255, 210, 70);
+    return p.color(255, 70, 55);
+  }
+
+  String manualModeLabel() {
+    if (autoControlEnabled) return "تلقائي";
+    return "يدوي";
+  }
+
+  void drawManualKeyHint(float x, float y, String keyName, String label, color c) {
+    p.pushStyle();
+    p.stroke(c);
+    p.strokeWeight(1.05f);
+    p.fill(p.red(c), p.green(c), p.blue(c), 24);
+    p.rect(x, y, 44, 24, 5);
+    p.textAlign(PConstants.CENTER);
+    p.textFont(font);
+    p.fill(c);
+    p.text(keyName, x + 22, y + 18);
+    p.fill(220, 245, 235);
+    p.text(label, x + 22, y + 41);
+    p.popStyle();
+  }
+
+  void drawKeyHint(float x, float y, String keyName, String label, color c) {
+    p.pushStyle();
+    p.stroke(c);
+    p.strokeWeight(1.1f);
+    p.fill(p.red(c), p.green(c), p.blue(c), 22);
+    p.rect(x, y, 42, 28, 5);
+    p.textAlign(PConstants.CENTER);
+    p.textFont(largeFont);
+    p.fill(c);
+    p.text(keyName, x + 21, y + 21);
+    p.textFont(font);
+    p.text(label, x + 21, y + 52);
+    p.popStyle();
   }
 
   void drawMiniHud(float x, float y, float w, float h) {
@@ -833,19 +1234,21 @@ class EnhancedRadarSystem {
     float h = 54;
     float margin = 38;
     float gap = 12;
-    float boxW = (p.width - margin * 2.0f - gap * 5.0f) / 6.0f;
-    String[] labels = {"STATUS", "TARGETS", "MODE", "ANGLE", "DISTANCE", "SYSTEM"};
+    float boxW = (p.width - margin * 2.0f - gap * 6.0f) / 7.0f;
+    String[] labels = {"STATUS", "TARGETS", "ENGAGED", "MODE", "ANGLE", "RANGE", "FIRE"};
     String[] values = {
       connectionArabicLabel(),
-      totalDetectedTargets + " هدف",
-      modeArabicLabel(),
+      totalDetectedTargets + " مكتشف",
+      engagedTargetCount + " مستهدف",
+      modeArabicLabel() + " / " + autoFireArabicLabel(),
       "رادار " + iAngle + "° / برج " + iAzimuth + "°",
       distanceLabel(iDistance),
-      fireArabicLabel()
+      fireArabicLabel() + " - " + controlStatusText
     };
     color[] colors = {
       isConnected ? hudGreen() : p.color(255, 70, 55),
       hudBlue(),
+      p.color(255, 210, 70),
       alertColor(),
       p.color(230, 240, 220),
       p.color(230, 240, 220),
@@ -854,6 +1257,7 @@ class EnhancedRadarSystem {
 
     float x = margin;
     p.textFont(font);
+    p.textSize(12);
     for (int i = 0; i < labels.length; i++) {
       float w = boxW;
       p.stroke(hudBlue(), 130);
@@ -874,7 +1278,7 @@ class EnhancedRadarSystem {
       p.pushMatrix();
       p.translate(radarCenter.x, radarCenter.y);
       p.noStroke();
-      p.fill(255, 0, 0, 40);
+      p.fill(255, 95, 10, 63);
       p.ellipse(0, 0, radarRadius * 2, radarRadius * 2);
       p.popMatrix();
     }
